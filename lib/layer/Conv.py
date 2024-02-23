@@ -67,3 +67,20 @@ class ResBlock(nn.Module):
         out = self.cv1(x)
         out = self.cv2(out)
         return x + out
+
+
+class ResN(nn.Module):
+    def __init__(self, cin, n=1):
+        """
+        ResN N个ResBlock
+        :param cin: 输入通道
+        :param n:  ResBlock的数量
+        """
+        super(ResN, self).__init__()
+        self.conv = Conv(cin, cin, 3, 1)
+        self.m = nn.Sequential(*[ResBlock(cin) for _ in range(n)])
+
+    def forward(self, x):
+        out = self.conv(x)
+        out = self.m(out)
+        return out
