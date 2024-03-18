@@ -29,6 +29,19 @@ class YamlUtil():
 
         self.content = self.read_yaml()  # 读取到的yaml文件内容
 
+    def get_value(self, key):
+        """
+        获取yaml中的值
+        :param key: key路径,数组形式 ['a','b','c'] 或者字符串形式 'a.b.c'
+        :return: key对应的值
+        """
+        really_key_path = self.is_exist_key(key)
+
+        content = self.content
+        for key in really_key_path:
+            content = content[key]
+        return content
+
     def add_root_key(self, key, value=None):
         """
         添加根key
@@ -47,18 +60,16 @@ class YamlUtil():
         :param value: 添加的值
         """
         # 判断key_path的类型，如果是字符串则转换为数组
-        flag, really_key_path = self.is_exist_key(key_path)
-        if flag:
-            content = self.content
-            for key in really_key_path[:-1]:
-                content = content[key]
+        really_key_path = self.is_exist_key(key_path)
 
-            if really_key_path[-1] in content:
-                raise Exception("当前key已存在")
+        content = self.content
+        for key in really_key_path[:-1]:
+            content = content[key]
 
-            content[really_key_path[-1]] = {} if value is None else value
-        else:
-            raise Exception('key路径存在问题')
+        if really_key_path[-1] in content:
+            raise Exception("当前key已存在")
+
+        content[really_key_path[-1]] = {} if value is None else value
 
     def debug(self):
         print(self.content)
@@ -73,21 +84,18 @@ class YamlUtil():
         # 判断key_path的类型，如果是字符串则转换为数组
         if value is None:
             value = {}
-        flag, really_key_path = self.is_exist_key(key_path, check_last=True)
-        if flag:
-            content = self.content
-            for key in really_key_path[:-1]:
-                content = content[key]
-            content[really_key_path[-1]] = {} if value is None else value
-        else:
-            raise Exception('key不存在')
+        really_key_path = self.is_exist_key(key_path, check_last=True)
+        content = self.content
+        for key in really_key_path[:-1]:
+            content = content[key]
+        content[really_key_path[-1]] = {} if value is None else value
 
     def is_exist_key(self, key_path, check_last=False):
         """
         判断yaml中是否存在某个key路径
         :param key_path: key_path,数组形式 ['a','b','c'] 或者字符串形式 'a.b.c'
         :param check_last: 是否检查最后一个key,因为对于最后一个key来说，可能是空的，所以默认不检查
-        :return: (True/False,key_path) 返回是否存在和key_path,如果不存在key_path为[]
+        :return: 返回key_path,如果不存在key_path为[]
         """
         # 判断key_path的类型，如果是字符串则转换为数组
         really_key_path = key_path.split('.') if isinstance(key_path, str) else key_path
@@ -98,7 +106,7 @@ class YamlUtil():
         for index, key in enumerate(really_key_path):
 
             if not check_last and index == len(really_key_path) - 1:
-                return True, really_key_path
+                return really_key_path
 
             # if index == len(really_key_path) - 1 and content == {}:
             #     return True, really_key_path
@@ -106,8 +114,8 @@ class YamlUtil():
             if key in content:
                 content = content[key]
             else:
-                return False, []
-        return True, really_key_path
+                raise Exception('key错误')
+        return really_key_path
 
     def read_yaml(self):
         """
