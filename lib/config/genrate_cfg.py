@@ -30,12 +30,13 @@ def default_cfg_generate(cfg_name, workspeace_dir, dataset_dir):
     cfg.add_root_key('model')
     cfg.add_root_key('dataset')
     cfg.add_root_key('train')
+    cfg.add_root_key('data')
     dataset_cfg_generate(cfg, dataset_dir)
 
 
 def dataset_cfg_generate(cfg: YamlUtil, dataset_dir):
     """
-    生成数据集配置
+    生成数据集相关配置
     :param cfg: cfg
     :param dataset_dir: 数据集路径
     :return:
