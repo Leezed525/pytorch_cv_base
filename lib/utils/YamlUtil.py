@@ -52,13 +52,14 @@ class YamlUtil():
         if value is None:
             value = {}
         flag, really_key_path = self.is_exist_key(key_path)
-        print(really_key_path)
         if flag:
             content = self.content
             for key in really_key_path[:-1]:
                 content = content[key]
-            if content is None:
-                content = {}
+
+            if really_key_path[-1] in content:
+                raise Exception("当前key已存在")
+
             content[really_key_path[-1]] = value
         else:
             raise Exception('key路径存在问题')
@@ -76,21 +77,20 @@ class YamlUtil():
         # 判断key_path的类型，如果是字符串则转换为数组
         if value is None:
             value = {}
-        flag, really_key_path = self.is_exist_key(key_path)
+        flag, really_key_path = self.is_exist_key(key_path, check_last=True)
         if flag:
             content = self.content
-            # Q:为什么下面那个really_key_path要用[:-1]?
-            # A:因为最后一个key是要修改的值，所以不需要遍历到最后一个key
             for key in really_key_path[:-1]:
                 content = content[key]
             content[really_key_path[-1]] = {} if value is None else value
         else:
             raise Exception('key不存在')
 
-    def is_exist_key(self, key_path):
+    def is_exist_key(self, key_path, check_last=False):
         """
         判断yaml中是否存在某个key路径
         :param key_path: key_path,数组形式 ['a','b','c'] 或者字符串形式 'a.b.c'
+        :param check_last: 是否检查最后一个key,因为对于最后一个key来说，可能是空的，所以默认不检查
         :return: (True/False,key_path) 返回是否存在和key_path,如果不存在key_path为[]
         """
         # 判断key_path的类型，如果是字符串则转换为数组
@@ -101,8 +101,11 @@ class YamlUtil():
         content = self.content
         for index, key in enumerate(really_key_path):
 
-            if index == len(really_key_path) - 1 and content == {}:
+            if not check_last and index == len(really_key_path) - 1:
                 return True, really_key_path
+
+            # if index == len(really_key_path) - 1 and content == {}:
+            #     return True, really_key_path
 
             if key in content:
                 content = content[key]
