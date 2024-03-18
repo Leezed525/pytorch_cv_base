@@ -4,24 +4,58 @@ cfg生成器
 @Author : Leezed
 @Time : 2024/3/18 13:25
 """
+import os.path
+
+from lib.utils.YamlUtil import YamlUtil
 
 
-def default_cfg_generate():
+def save_cfg(cfg: YamlUtil):
     """
-
-    生成默认配置文件,创建初始yaml文件
+    保存配置文件
+    :param cfg:
     :return:
     """
-    pass
+    cfg.write_yaml()
 
 
-def dataset_cfg_generate(datadir):
+def default_cfg_generate(cfg_name, workspeace_dir, dataset_dir):
     """
-    生成数据集配置文件
-    :param datadir: 数据集路径
+    生成默认配置
+    :param cfg_name: 配置文件名
+    :param workspeace_dir:  工作空间路径
+    :param dataset_dir:  数据集路径
     :return:
     """
-    pass
+    cfg = YamlUtil(os.path.join(workspeace_dir, "configs"), cfg_name)
+    cfg.add_root_key('model')
+    cfg.add_root_key('dataset')
+    cfg.add_root_key('train')
+    dataset_cfg_generate(cfg, dataset_dir)
 
 
+def dataset_cfg_generate(cfg: YamlUtil, dataset_dir):
+    """
+    生成数据集配置
+    :param cfg: cfg
+    :param dataset_dir: 数据集路径
+    :return:
+    """
+    cfg.add_key('dataset.depthTracking')
+    cfg.add_key('dataset.depthTracking.train')
+    cfg.add_key('dataset.depthTracking.train.dir', dataset_dir + '\\depthTracking\\train')
+    cfg.add_key('dataset.depthTracking.val')
+    cfg.add_key('dataset.depthTracking.val.dir', dataset_dir + '\\depthTracking\\val')
 
+    cfg.add_key('dataset.LasHeR')
+    cfg.add_key('dataset.LasHeR.train')
+    cfg.add_key('dataset.LasHeR.train.dir', dataset_dir + '\\LasHeR\\train')
+    cfg.add_key('dataset.LasHeR.val')
+    cfg.add_key('dataset.LasHeR.val.dir', dataset_dir + '\\LasHeR\\val')
+
+    cfg.add_key('dataset.VisEvent')
+    cfg.add_key('dataset.VisEvent.train')
+    cfg.add_key('dataset.VisEvent.train.dir', dataset_dir + '\\VisEvent\\train')
+    cfg.add_key('dataset.VisEvent.val')
+    cfg.add_key('dataset.VisEvent.val.dir', dataset_dir + '\\VisEvent\\val')
+
+    save_cfg(cfg)

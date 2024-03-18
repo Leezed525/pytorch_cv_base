@@ -35,8 +35,6 @@ class YamlUtil():
         :param key: 添加的key
         :param value: 添加的值
         """
-        if value is None:
-            value = {}
         if key not in self.content:
             self.content[key] = {} if value is None else value
         else:
@@ -44,13 +42,11 @@ class YamlUtil():
 
     def add_key(self, key_path, value=None):
         """
-        添加key
+        添加key 当前只能添加最后一个key,比如a.b.c,只能添加c,如果b不存在就会报错
         :param key_path: key路径,数组形式 ['a','b','c'] 或者字符串形式 'a.b.c'
         :param value: 添加的值
         """
         # 判断key_path的类型，如果是字符串则转换为数组
-        if value is None:
-            value = {}
         flag, really_key_path = self.is_exist_key(key_path)
         if flag:
             content = self.content
@@ -60,7 +56,7 @@ class YamlUtil():
             if really_key_path[-1] in content:
                 raise Exception("当前key已存在")
 
-            content[really_key_path[-1]] = value
+            content[really_key_path[-1]] = {} if value is None else value
         else:
             raise Exception('key路径存在问题')
 
