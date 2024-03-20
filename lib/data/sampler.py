@@ -56,3 +56,17 @@ class TrackingSampler(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.samples_per_epoch
+
+    def __getitem__(self, index):
+        if self.train_cls:
+            return self.getitem_cls()
+        else:
+            return self.getitem()
+
+    def getitem(self):
+
+        valid = False
+
+        while not valid:
+            # 选择一个数据集
+            dataset = random.choices(self.datasets, weights=self.p_datasets)[0]

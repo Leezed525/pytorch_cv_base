@@ -29,6 +29,9 @@ class YamlUtil():
 
         self.content = self.read_yaml()  # 读取到的yaml文件内容
 
+    def __getattr__(self, key):
+        return self.get_value(key)
+
     def get_value(self, key):
         """
         获取yaml中的值

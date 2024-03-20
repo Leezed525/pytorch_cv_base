@@ -4,6 +4,7 @@
 @Time : 2024/3/18 16:37
 """
 from lib.config.genrate_cfg import default_cfg_generate
+from lib.config.cfg_loader import CfgLoader, get_cfg
 import os
 import argparse
 
@@ -27,3 +28,15 @@ if __name__ == '__main__':
         else os.path.relpath(args.data_dir)
 
     default_cfg_generate(cfg_name, workspace_dir, datasets_dir)
+
+
+
+    # print(workspace_dir)
+
+    # cfg = get_cfg(os.path.join(workspace_dir,"configs"), cfg_name)
+    # print(cfg)
+    # cfg = dict(cfg)
+    # print(type(cfg))
+    # print(cfg.model)
+    # cfg = CfgLoader(get_cfg(os.path.join(workspace_dir, "configs"), cfg_name))
+    # print(cfg.dataset.depthTracking.train.dir)
