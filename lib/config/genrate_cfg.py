@@ -41,11 +41,11 @@ def dataset_cfg_generate(cfg: YamlUtil, dataset_dir):
     :param dataset_dir: 数据集路径
     :return:
     """
-    cfg.add_key('dataset.depthTracking')
-    cfg.add_key('dataset.depthTracking.train')
-    cfg.add_key('dataset.depthTracking.train.dir', dataset_dir + '\\depthTracking\\train')
-    cfg.add_key('dataset.depthTracking.val')
-    cfg.add_key('dataset.depthTracking.val.dir', dataset_dir + '\\depthTracking\\val')
+    cfg.add_key('dataset.DepthTrack')
+    cfg.add_key('dataset.DepthTrack.train')
+    cfg.add_key('dataset.DepthTrack.train.dir', dataset_dir + '\\DepthTrack\\train')
+    cfg.add_key('dataset.DepthTrack.val')
+    cfg.add_key('dataset.DepthTrack.val.dir', dataset_dir + '\\DepthTrack\\val')
 
     cfg.add_key('dataset.LasHeR')
     cfg.add_key('dataset.LasHeR.train')
