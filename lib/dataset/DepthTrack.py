@@ -4,25 +4,30 @@
 @Time : 2024/3/26 21:36
 """
 import os
+
+import numpy as np
 import pandas
+import torch
+
 from lib.dataset.base_video_dataset import BaseVideoDataset
 from lib.data.image_loader import jpeg4py_loader_w_failsafe
-from lib.config.cfg_loader import CfgLoader
+from lib.config.cfg_loader import env_setting
 
 
 class DepthTrack(BaseVideoDataset):
-    def __init__(self, root=None, dtype='rgbcolormap', split='train', image_loader=jpeg4py_loader_w_failsafe, setting: CfgLoader = None):
-
+    def __init__(self, root=None, dtype='rgbcolormap', split='train', image_loader=jpeg4py_loader_w_failsafe, cfg_name=None):
+        root = env_setting(cfg_name).dataset.DepthTrack[split]['dir'] if root is None else root
         super(DepthTrack, self).__init__('DepthTrack', root, image_loader)
         self.dtype = dtype
         self.split = split
         self.sequence_list = self._build_sequence_list()
-        self.class_list = self._build_class_list()
+        self.seq_per_class, self.class_list = self._build_class_list()
+        self.class_list.sort()
+        self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
 
     def _build_sequence_list(self):
         # ltr_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')
         ltr_path = os.path.dirname(os.path.realpath(__file__))
-        print(ltr_path)
         file_path = os.path.join(ltr_path, 'data_specs', 'depthtrack_%s.txt' % self.split)
         sequence_list = pandas.read_csv(file_path, header=None).squeeze().values.tolist()
         return sequence_list
@@ -42,6 +47,44 @@ class DepthTrack(BaseVideoDataset):
                 seq_per_class[class_name] = [seq_id]
 
         return seq_per_class, class_list
+
+    def get_name(self):
+        return "DepthTrack"
+
+    def has_class_info(self):
+        return True
+
+    def has_occlusion_info(self):
+        return True
+
+    def get_num_sequences(self):
+        return len(self.sequence_list)
+
+    def get_num_classes(self):
+        return len(self.class_list)
+
+    def get_sequence_in_class(self, class_name):
+        return self.seq_per_class[class_name]
+
+    def _read_bb_anno(self, seq_path):
+        bb_anno_file = os.path.join(seq_path, "groundtruth.txt")
+        gt = pandas.read_csv(bb_anno_file, delimiter=',', header=None, dtype=np.float32, na_filter=True, low_memory=False).values
+        return torch.tensor(gt)
+
+    def _get_sequence_path(self, seq_id):
+        seq_name = self.sequence_list[seq_id]
+        return os.path.join(self.root, seq_name)
+
+    def get_sequence_info(self, seq_id):
+        seq_path = self._get_sequence_path(seq_id)
+        bbox = self._read_bb_anno(seq_path)
+        '''
+        if the box is too small, it will be ignored
+        '''
+        # valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
+        valid = (bbox[:, 2] > 10.0) & (bbox[:, 3] > 10.0)
+        visible = valid.clone().byte()
+        return {'bbox': bbox, 'valid': valid, 'visible': visible}
 
 
 if __name__ == '__main__':
