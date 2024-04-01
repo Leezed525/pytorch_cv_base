@@ -58,6 +58,7 @@ def opencv_loader(path):
         return None
 
 def jpeg4py_loader_w_failsafe(path):
+    """ Image reading using jpeg4py https://github.com/ajkxyz/jpeg4py"""
     try:
         return jpeg4py.JPEG(path).decode()
     except:
