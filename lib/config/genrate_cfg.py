@@ -51,7 +51,7 @@ def dataset_cfg_generate(cfg: YamlUtil, dataset_dir):
     cfg.add_key('dataset.LasHeR.train')
     cfg.add_key('dataset.LasHeR.train.dir', dataset_dir + '\\LasHeR\\train')
     cfg.add_key('dataset.LasHeR.val')
-    cfg.add_key('dataset.LasHeR.val.dir', dataset_dir + '\\LasHeR\\val')
+    cfg.add_key('dataset.LasHeR.val.dir', dataset_dir + '\\LasHeR\\train')
 
     cfg.add_key('dataset.VisEvent')
     cfg.add_key('dataset.VisEvent.train')

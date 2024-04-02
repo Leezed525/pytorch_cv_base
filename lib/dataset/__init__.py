@@ -5,6 +5,7 @@
 """
 from lib.dataset.DepthTrack import DepthTrack
 from lib.config.cfg_loader import env_setting
+from lib.dataset.LasHeR import LasHeR
 
 
 def names_to_datasets(name_list: list, setting, image_loader):
@@ -17,3 +18,9 @@ def names_to_datasets(name_list: list, setting, image_loader):
             datasets.append(DepthTrack(root=cfg.dataset.DepthTrack.train.dir, dtype='rgbcolormap', split='train'))
         if name == 'DepthTrack_val':
             datasets.append(DepthTrack(root=cfg.dataset.DepthTrack.val.dir, dtype='rgbcolormap', split='val'))
+        if name == 'LasHeR_all':
+            datasets.append(LasHeR(root=cfg.dataset.LasHeR.train.dir, split='all', dtype='rgbrgb'))
+        if name == 'LasHeR_train':
+            datasets.append(LasHeR(root=cfg.dataset.LasHeR.train.dir, split='train', dtype='rgbrgb'))
+        if name == 'LasHeR_val':
+            datasets.append(LasHeR(root=cfg.dataset.LasHeR.val.dir, split='val', dtype='rgbrgb'))
