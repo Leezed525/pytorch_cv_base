@@ -12,6 +12,8 @@ import torch
 from lib.dataset.base_video_dataset import BaseVideoDataset
 from lib.data.image_loader import jpeg4py_loader_w_failsafe
 from lib.config.cfg_loader import env_setting
+from lib.dataset.depth_utils import get_x_frame
+from collections import OrderedDict
 
 
 class DepthTrack(BaseVideoDataset):
@@ -95,6 +97,37 @@ class DepthTrack(BaseVideoDataset):
         """
         return os.path.join(seq_path, 'color', '{:08}.jpg'.format(frame_id + 1)), os.path.join(seq_path, 'depth', '{:08}.png'.format(
             frame_id + 1))  # frames start from 1
+
+    def _get_frame(self, seq_path, frame_id):
+        color_path, depth_path = self._get_frame_path(seq_path, frame_id)
+        img = get_x_frame(color_path, depth_path, self.dtype, depth_clip=True)
+
+        return img
+
+    def _get_class(self, seq_path):
+        return self.split
+
+    def get_frames(self, seq_id, frame_ids, anno=None):
+        seq_path = self._get_sequence_path(seq_id)
+
+        obj_class = self._get_class(seq_path)
+
+        if anno is None:
+            anno = self.get_sequence_info(seq_id)
+
+        anno_frames = {}
+        for key, value in anno.items():
+            anno_frames[key] = [value[f_id, ...].clone() for ii, f_id in enumerate(frame_ids)]
+
+        frame_list = [self._get_frame(seq_path, f_id) for ii, f_id in enumerate(frame_ids)]
+
+        object_meta = OrderedDict({'object_class_name': obj_class,
+                                   'motions_class': None,
+                                   'major_class': None,
+                                   'root_class': None,
+                                   'motion_adverb': None})
+
+        return frame_list, anno_frames, object_meta
 
 
 if __name__ == '__main__':
