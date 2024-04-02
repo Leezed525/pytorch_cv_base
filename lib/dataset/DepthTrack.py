@@ -86,6 +86,16 @@ class DepthTrack(BaseVideoDataset):
         visible = valid.clone().byte()
         return {'bbox': bbox, 'valid': valid, 'visible': visible}
 
+    def _get_frame_path(self, seq_path, frame_id):
+        """
+        返回某个seq某一帧的路径 (包含 color depth)
+        :param seq_path:  sequence path
+        :param frame_id:  frame id
+        :return: color image path, depth image path
+        """
+        return os.path.join(seq_path, 'color', '{:08}.jpg'.format(frame_id + 1)), os.path.join(seq_path, 'depth', '{:08}.png'.format(
+            frame_id + 1))  # frames start from 1
+
 
 if __name__ == '__main__':
     depthTrack = DepthTrack()
