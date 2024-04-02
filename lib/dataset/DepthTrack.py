@@ -130,5 +130,3 @@ class DepthTrack(BaseVideoDataset):
         return frame_list, anno_frames, object_meta
 
 
-if __name__ == '__main__':
-    depthTrack = DepthTrack()
