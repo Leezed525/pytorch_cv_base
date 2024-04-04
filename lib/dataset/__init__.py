@@ -6,6 +6,7 @@
 from lib.dataset.DepthTrack import DepthTrack
 from lib.config.cfg_loader import env_setting
 from lib.dataset.LasHeR import LasHeR
+from lib.dataset.VisEvent import VisEvent
 
 
 def names_to_datasets(name_list: list, setting, image_loader):
@@ -24,3 +25,7 @@ def names_to_datasets(name_list: list, setting, image_loader):
             datasets.append(LasHeR(root=cfg.dataset.LasHeR.train.dir, split='train', dtype='rgbrgb'))
         if name == 'LasHeR_val':
             datasets.append(LasHeR(root=cfg.dataset.LasHeR.val.dir, split='val', dtype='rgbrgb'))
+        if name == "VisEvent":
+            datasets.append(VisEvent(root=cfg.dataset.VisEvent.train.dir, dtype='rgbrgb', split='train'))
+
+    return datasets
