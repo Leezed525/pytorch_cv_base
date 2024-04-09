@@ -99,10 +99,10 @@ def sample_target(im, target_bb, search_area_factor, output_sz=None, mask=None):
         att_mask = cv.resize(att_mask, (output_sz, output_sz)).astype(np.bool_)
         if mask is None:
             return im_crop_padded, resize_factor, att_mask
-        mask_crop_padded = \
-            F.interpolate(mask_crop_padded[None, None], (output_sz, output_sz), mode='bilinear', align_corners=False)[0, 0]
-        return im_crop_padded, resize_factor, att_mask, mask_crop_padded
-
+        else:
+            mask_crop_padded = F.interpolate(mask_crop_padded[None, None],
+                                             (output_sz, output_sz), mode='bilinear', align_corners=False)[0, 0]  # 上采样函数
+            return im_crop_padded, resize_factor, att_mask, mask_crop_padded
     else:
         if mask is None:
             return im_crop_padded, att_mask.astype(np.bool_), 1.0
@@ -143,6 +143,12 @@ def jittered_center_crop(frames, box_extract, box_gt, search_area_factor, output
                 for a_gt, a_ex, rf in zip(box_gt, box_extract, resize_factors)]  # (x1,y1,w,h) list of tensors
 
     return frames_crop, box_crop, att_mask, masks_crop
+
+
+def stack_tensors(x):
+    if isinstance(x, (list, tuple)) and isinstance(x[0], torch.Tensor):
+        return torch.stack(x)
+    return x
 
 
 class BaseProcessing:
@@ -216,3 +222,17 @@ class ViPTProcessing(BaseProcessing):
             if (crop_sz < 1).any():
                 data['valid'] = False
                 return data
+
+            crops, boxes, _, _ = jittered_center_crop(data[s + '_images'], jittered_anno, data[s + '_anno'], self.search_area_factor[s],
+                                                      self.output_sz)
+
+            data[s + '_images'], data[s + '_anno'] = self.transform[s](image=crops, bbox=boxes, joint=False)
+
+        data['valid'] = True
+
+        if self.mode == 'sequence':
+            data = data.apply(stack_tensors)
+        else:
+            data = data.apply(lambda x: x[0] if isinstance(x, list) else x)
+
+        return data
