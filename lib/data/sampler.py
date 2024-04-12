@@ -97,6 +97,105 @@ class TrackingSampler(torch.utils.data.Dataset):
         else:
             return self.getitem()
 
+    def getitem_cls(self):
+        valid = False
+        label = None
+
+        while not valid:
+            # 选择一个数据集
+            dataset = random.choices(self.datasets, weights=self.p_datasets)[0]
+
+            is_video_dataset = dataset.is_video_sequence()
+
+            seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
+
+            if is_video_dataset:
+                if self.frame_sample_mode in ["trident", "trident_pro"]:
+                    template_frame_ids, search_frame_ids = self.get_frames_ids_trident(visible)
+                elif self.frame_sample_mode == "stark":
+                    template_frame_ids, search_frame_ids = self.get_frame_ids_stark(visible, seq_info_dict["valid"])
+                else:
+                    raise ValueError("Illegal frame sample mode")
+            else:
+                # In case of image dataset, just repeat the image to generate synthetic video
+                template_frame_ids = [1] * self.num_template_frames
+                search_frame_ids = [1] * self.num_search_frames
+            try:
+                # "try" is used to handle trackingnet data failure
+                # get images and bounding boxes (for templates)
+                template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids,
+                                                                                    seq_info_dict)
+                H, W, _ = template_frames[0].shape
+                template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros(
+                    (H, W))] * self.num_template_frames
+                # get images and bounding boxes (for searches)
+                # positive samples
+                if random.random() < self.pos_prob:
+                    label = torch.ones(1,)
+                    search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
+                    search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros(
+                        (H, W))] * self.num_search_frames
+                # negative samples
+                else:
+                    label = torch.zeros(1,)
+                    if is_video_dataset:
+                        search_frame_ids = self._sample_visible_ids(visible, num_ids=1, force_invisible=True)
+                        if search_frame_ids is None:
+                            search_frames, search_anno, meta_obj_test = self.get_one_search()
+                        else:
+                            search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids,
+                                                                                           seq_info_dict)
+                            search_anno["bbox"] = [self.get_center_box(H, W)]
+                    else:
+                        search_frames, search_anno, meta_obj_test = self.get_one_search()
+                    H, W, _ = search_frames[0].shape
+                    search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros(
+                        (H, W))] * self.num_search_frames
+
+                data = TensorDict({'template_images': template_frames,
+                                   'template_anno': template_anno['bbox'],
+                                   'template_masks': template_masks,
+                                   'search_images': search_frames,
+                                   'search_anno': search_anno['bbox'],
+                                   'search_masks': search_masks,
+                                   'dataset': dataset.get_name(),
+                                   'test_class': meta_obj_test.get('object_class_name')})
+
+                # make data augmentation
+                data = self.processing(data)
+                # add classification label
+                data["label"] = label
+                # check whether data is valid
+                valid = data['valid']
+            except:
+                valid = False
+
+        return data
+
+    def get_center_box(self, H, W, ratio=1/8):
+        cx, cy, w, h = W/2, H/2, W * ratio, H * ratio
+        return torch.tensor([int(cx-w/2), int(cy-h/2), int(w), int(h)])
+
+    def get_one_search(self):
+        # Select a dataset
+        dataset = random.choices(self.datasets, self.p_datasets)[0]
+
+        is_video_dataset = dataset.is_video_sequence()
+        # sample a sequence
+        seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
+        # sample a frame
+        if is_video_dataset:
+            if self.frame_sample_mode == "stark":
+                search_frame_ids = self._sample_visible_ids(seq_info_dict["valid"], num_ids=1)
+            else:
+                search_frame_ids = self._sample_visible_ids(visible, num_ids=1, allow_invisible=True)
+        else:
+            search_frame_ids = [1]
+        # get the image, bounding box and other info
+        search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
+
+        return search_frames, search_anno, meta_obj_test
+
     def getitem(self):
 
         valid = False
@@ -135,7 +234,7 @@ class TrackingSampler(torch.utils.data.Dataset):
                         gap_increase += 5
                 elif self.frame_sample_mode == 'trident' or self.frame_sample_mode == 'trident_pro':
                     template_frame_ids, search_frame_ids = self.get_frames_ids_trident(visible)
-                elif self.frame_sample_mode == ' start':
+                elif self.frame_sample_mode == ' stark':
                     template_frame_ids, search_frame_ids = self.get_frame_ids_stark(visible, seq_info_dict["valid"])
                 else:
                     raise ValueError("Illegal frame sample mode")
