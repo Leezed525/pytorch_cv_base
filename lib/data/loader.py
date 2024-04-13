@@ -7,7 +7,7 @@ import torch
 import torch.utils.data.dataloader
 import importlib
 import collections
-from torch._six import string_classes
+# from torch._six import string_classes
 from lib.common.tensor import TensorDict, TensorList
 
 if float(torch.__version__[:3]) >= 1.9 or len('.'.join((torch.__version__).split('.')[0:2])) > 3:
@@ -58,7 +58,7 @@ def ltr_collate(batch):
         return torch.LongTensor(batch)
     elif isinstance(batch[0], float):
         return torch.DoubleTensor(batch)
-    elif isinstance(batch[0], string_classes):
+    elif isinstance(batch[0], str):
         return batch
     elif isinstance(batch[0], TensorDict):
         return TensorDict({key: ltr_collate([d[key] for d in batch]) for key in batch[0]})
@@ -109,7 +109,7 @@ def ltr_collate_stack1(batch):
         return torch.LongTensor(batch)
     elif isinstance(batch[0], float):
         return torch.DoubleTensor(batch)
-    elif isinstance(batch[0], string_classes):
+    elif isinstance(batch[0], str):
         return batch
     elif isinstance(batch[0], TensorDict):
         return TensorDict({key: ltr_collate_stack1([d[key] for d in batch]) for key in batch[0]})

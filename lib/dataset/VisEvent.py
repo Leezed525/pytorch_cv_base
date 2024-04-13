@@ -25,7 +25,7 @@ class VisEvent(BaseVideoDataset):
         self.dtype = dtype
         self.split = split
         self.sequence_list = self._build_sequence_list()
-        print(self.sequence_list)
+        # print(self.sequence_list)
 
     def _build_sequence_list(self):
         ltr_path = os.path.dirname(os.path.realpath(__file__))

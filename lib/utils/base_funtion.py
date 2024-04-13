@@ -57,7 +57,7 @@ def build_dataloaders(cfg: CfgLoader):
 
     dataset_train = sampler.TrackingSampler(datasets=names_to_datasets(cfg.data.train.datasets_name, cfg, image_loader.opencv_loader),
                                             p_datasets=cfg.data.train.datasets_ratio,
-                                            samples_per_epoch=cfg.data.train.samples_per_epoch,
+                                            samples_per_epoch=cfg.data.train.sample_per_epoch,
                                             max_gap=cfg.data.max_sample_interval,
                                             num_search_frames=cfg.data.search.number,
                                             num_template_frames=cfg.data.template.number,
@@ -75,7 +75,7 @@ def build_dataloaders(cfg: CfgLoader):
                                     training=True,
                                     batch_size=cfg.train.batch_size,
                                     shuffle=shuffle,
-                                    num_workers=8,
+                                    num_workers=cfg.train.num_worker,
                                     drop_last=True,
                                     stack_dim=1,
                                     sampler=train_sampler)
@@ -85,7 +85,7 @@ def build_dataloaders(cfg: CfgLoader):
     else:
         dataset_val = sampler.TrackingSampler(datasets=names_to_datasets(cfg.data.val.datasets_name, cfg, image_loader.opencv_loader),
                                               p_datasets=cfg.data.val.datasets_ratio,
-                                              samples_per_epoch=cfg.data.val.samples_per_epoch,
+                                              samples_per_epoch=cfg.data.val.sample_per_epoch,
                                               max_gap=cfg.data.max_sample_interval,
                                               num_search_frames=cfg.data.search.number,
                                               num_template_frames=cfg.data.template.number,
@@ -94,12 +94,12 @@ def build_dataloaders(cfg: CfgLoader):
                                               train_cls=train_cls)
         # val_sampler = DistributedSampler(dataset_val) if settings.local_rank != -1 else None
         val_sampler = None
-        loader_val = loader.LTRLoader('val', dataset_val,
+        loader_val = loader.LTRLoader(name = 'val',
+                                      dataset=dataset_val,
                                       training=False,
                                       batch_size=cfg.train.batch_size,
                                       num_workers=cfg.train.num_worker,
                                       drop_last=True,
                                       stack_dim=1,
-                                      sampler=val_sampler,
-                                      epoch_interval=cfg.train.val_epoch_interval)
+                                      sampler=val_sampler)
     return loader_train, loader_val
