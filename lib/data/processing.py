@@ -171,7 +171,7 @@ class BaseProcessing:
 
 class ViPTProcessing(BaseProcessing):
     def __init__(self, search_area_factor, output_sz, center_jitter_factor, scale_jitter_factor, transform=transforms.ToTensor(),
-                 template_transformer=None, search_transformer=None, joint_transformer=None, mode='pair'):
+                 template_transform=None, search_transform=None, joint_transform=None, mode='pair'):
         """
 
         :param search_area_factor:  The size of the search region  relative to the target size.
@@ -184,7 +184,7 @@ class ViPTProcessing(BaseProcessing):
         :param joint_transformer: see BaseProcessing
         :param mode: Either 'pair' or 'sequence'. If mode='sequence', then output has an extra dimension for frames
         """
-        super().__init__(transform, template_transformer, search_transformer, joint_transformer)
+        super().__init__(transform, template_transform, search_transform, joint_transform)
         self.search_area_factor = search_area_factor
         self.output_sz = output_sz
         self.center_jitter_factor = center_jitter_factor

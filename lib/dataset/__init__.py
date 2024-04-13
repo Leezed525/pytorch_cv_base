@@ -7,10 +7,11 @@ from lib.dataset.DepthTrack import DepthTrack
 from lib.config.cfg_loader import env_setting
 from lib.dataset.LasHeR import LasHeR
 from lib.dataset.VisEvent import VisEvent
+from lib.config.cfg_loader import CfgLoader
 
 
-def names_to_datasets(name_list: list, setting, image_loader):
-    cfg = env_setting(cfg_name=None)
+def names_to_datasets(name_list: list,cfg:CfgLoader, image_loader):
+    # cfg = env_setting(cfg_name=None)
     datasets = []
     valid_dataset_name = ["LasHeR_all", "LasHeR_train", "LasHeR_val", "DepthTrack_train", "DepthTrack_val", "VisEvent"]
     for name in name_list:
