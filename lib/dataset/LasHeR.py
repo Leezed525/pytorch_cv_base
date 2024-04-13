@@ -29,7 +29,7 @@ class LasHeR(BaseVideoDataset):
             seq_ids = list(range(0, len(self.sequence_list)))
 
         self.sequence_list = [self.sequence_list[i] for i in seq_ids]
-        print(self.sequence_list)
+        # print(self.sequence_list)
         if data_fraction is not None:
             self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
 
