@@ -203,6 +203,7 @@ class TrackingSampler(torch.utils.data.Dataset):
         while not valid:
             # 选择一个数据集
             dataset = random.choices(self.datasets, weights=self.p_datasets)[0]
+            # print("choice dataset: ", dataset.get_name())
 
             is_video_dataset = dataset.is_video_sequence()
 
@@ -211,13 +212,13 @@ class TrackingSampler(torch.utils.data.Dataset):
             seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
 
             if is_video_dataset:
-                template_frames_ids = None
-                search_frames_ids = None
+                template_frame_ids = None
+                search_frame_ids = None
                 gap_increase = 0
 
                 if self.frame_sample_mode == 'causal':
                     # 以因果方式对帧进行采样测试和训练，即search_frame_ids>template_frame_ids
-                    while search_frames_ids is None:
+                    while search_frame_ids is None:
                         base_frame_id = self._sample_visible_ids(visible, num_ids=1, min_id=self.num_template_frames - 1,
                                                                  max_id=len(visible) - self.num_search_frames)
                         prev_frame_ids = self._sample_visible_ids(visible, num_ids=self.num_template_frames - 1,
@@ -254,11 +255,11 @@ class TrackingSampler(torch.utils.data.Dataset):
                                    'dataset': dataset.get_name(),
                                    'test_class': meta_obj_test.get('object_class_name')})
                 # make data augmentation
-
                 data = self.processing(data)
 
                 # check whether data is valid
                 valid = data['valid']
+                # print(valid)
             except:
                 valid = False
         return data

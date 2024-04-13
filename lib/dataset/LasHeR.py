@@ -65,8 +65,9 @@ class LasHeR(BaseVideoDataset):
         return {'bbox': bbox, 'valid': valid, 'visible': visible}
 
     def _get_frame_path(self, seq_path, frame_id):
-        rgb_frame_path = os.path.join(seq_path, 'visible', '{:06d}.jpg'.format(frame_id))
-        ir_frame_path = os.path.join(seq_path, 'infrared', '{:06d}.jpg'.format(frame_id))
+        # todo 获取当前目录下的文件格式，傻逼数据集里面的数据不规律的我真是艹了
+        rgb_frame_path = os.path.join(seq_path, 'visible', 'v{:06d}.jpg'.format(frame_id))
+        ir_frame_path = os.path.join(seq_path, 'infrared', 'i{:06d}.jpg'.format(frame_id))
         return (rgb_frame_path, ir_frame_path)
 
     def _get_frame(self, seq_path, frame_id):

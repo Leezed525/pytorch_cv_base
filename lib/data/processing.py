@@ -208,9 +208,10 @@ class ViPTProcessing(BaseProcessing):
         if self.transform['joint'] is not None:
             data['template_images'], data['template_anno'] = self.transform['joint'](image=data['template_images'], bbox=data['template_anno'])
             data['search_images'], data['search_anno'] = self.transform['joint'](image=data['search_images'], bbox=data['search_anno'],
-                                                                                 new_rool=False)
+                                                                                 new_roll=False)
+
         for s in ['template', 'search']:
-            assert self.mode == 'squence' or len(data[s + '_images']) == 1, "In pair mode,num train/test frames must be 1"
+            assert self.mode == 'sequence' or len(data[s + '_images']) == 1, "In pair mode,num train/test frames must be 1"
 
             # Add a uniform noise to the center pos,RGB and X modalities are aligned
             jittered_anno = [self._get_jittered_box(a, s) for a in data[s + '_anno']]
@@ -218,16 +219,15 @@ class ViPTProcessing(BaseProcessing):
             # Check whether data is valid .Avoid too small bounding boxes stack (Ns,4)
             w, h = torch.stack(jittered_anno, dim=0)[:, 2], torch.stack(jittered_anno, dim=0)[:, 3]
 
-            crop_sz = torch.stack(torch.sqrt(w * h) * self.search_area_factor[s])
+            crop_sz = torch.ceil(torch.sqrt(w * h) * self.search_area_factor[s])
             if (crop_sz < 1).any():
                 data['valid'] = False
                 return data
-
-            crops, boxes, _, _ = jittered_center_crop(data[s + '_images'], jittered_anno, data[s + '_anno'], self.search_area_factor[s],
-                                                      self.output_sz)
+            crops, boxes, _, _ = jittered_center_crop(data[s + '_images'], jittered_anno,
+                                                      data[s + '_anno'], self.search_area_factor[s],
+                                                      self.output_sz[s])
 
             data[s + '_images'], data[s + '_anno'] = self.transform[s](image=crops, bbox=boxes, joint=False)
-
         data['valid'] = True
 
         if self.mode == 'sequence':
