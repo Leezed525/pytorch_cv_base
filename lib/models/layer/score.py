@@ -7,5 +7,5 @@ import torch.nn as nn
 
 
 class ScoreLayer(nn.Module):
-    def __init__(self):
+    def __init__(self,patch_nums,threshold1 = 0.33,threshold2 = 0.66):
         super().__init__()
