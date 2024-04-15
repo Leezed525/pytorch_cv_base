@@ -24,9 +24,13 @@ class ScoreLayerUseConv(nn.Module):
         # x shape: (B, H, W, C)
         # relpos = self.rel_pos((H, W))
         # x = self.ret_block(x, retention_rel_pos=relpos)
-        y = x.permute(0, 3, 1, 2).contiguous()  # (B,H,W,C) -> (B,C,H,W)
-        mask = self.softmax(self.conv1(self.conv2(y)))
-        positive_mask = mask > self.threshold2
-        uncertain_mask = self.threshold1 < mask <= self.threshold2
-        negative_mask = mask <= self.threshold1
+        # x = x.permute(0, 3, 1, 2)  # (B,H,W,C) -> (B,C,H,W)
+
+        # x shape: (B,C,H,W)
+        mask = self.softmax(self.conv2(self.conv1(x)))
+        # q: 下面三个mask应该怎么改
+        #
+        positive_mask = (mask < 0.33).float()
+        uncertain_mask = ((mask >= 0.33) & (mask < 0.66)).float()
+        negative_mask = (mask >= 0.66).float()
         return positive_mask, uncertain_mask, negative_mask
