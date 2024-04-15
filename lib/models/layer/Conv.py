@@ -38,7 +38,7 @@ class Conv(nn.Module):
         self.bn = nn.BatchNorm2d(cout)
 
         # bn层方差减半有助于收敛
-        nn.init.constant(self.bn.weight, 0.5)
+        nn.init.constant_(self.bn.weight, 0.5)
         nn.init.zeros_(self.bn.bias)
 
         self.activation = activation
