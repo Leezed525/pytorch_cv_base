@@ -24,8 +24,21 @@ class LeeNetActor(BaseActor):
         loss, status = self.compute_losses(out_dict, data)
         return loss, status
 
-    def forward_pass(self,data):
-        pass
+    def forward_pass(self, data):
+        # currently only support 1 template and 1 search region
+        assert len(data['template_images']) == 1
+        assert len(data['search_images']) == 1
+
+        template_list = []
+        for i in range(self.cfg.data.template.number):
+            template_img_i = data['template_images'][i].view(-1, *data['template_images'].shape[2:])  # (batch, 6, 128, 128)
+            template_list.append(template_img_i)
+
+        search_img = data['search_images'][0].view(-1, *data['search_images'].shape[2:])  # (batch, 6, 320, 320)
+
+        out_dict = self.net(template_list, search_img)
+
+        return out_dict
 
     def compute_losses(self, out_dict, data):
-        pass
+        return 1,2
