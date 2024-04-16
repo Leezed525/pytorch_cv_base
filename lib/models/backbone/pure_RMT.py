@@ -9,6 +9,7 @@ from lib.models.layer.patch_embed import PatchEmbed
 from lib.models.layer.score import ScoreLayerUseConv
 from lib.config.cfg_loader import CfgLoader
 from lib.models.layer.RMT import BasicLayer, PatchMerging
+from lib.utils.backbone_utils import combine_tokens
 
 
 class PureRMT(nn.Module):
@@ -24,6 +25,7 @@ class PureRMT(nn.Module):
         mlp_ratios = cfg.model.pureRMT.mlp_ratios
         drop_path_rate = cfg.model.pureRMT.drop_path_rate
         chunkwise_recurrents = cfg.model.pureRMT.chunkwise_recurrents
+        self.combine_token_mode = cfg.model.pureRMT.combine_token_mode
 
         self.patch_embed = PatchEmbed(patch_size=patch_size, in_chans=3, embed_dim=self.embed_dim[0], flatten=False)
         self.score = ScoreLayerUseConv(embed_dim=self.embed_dim[0])
@@ -50,6 +52,8 @@ class PureRMT(nn.Module):
                 layer_init_values=layer_init_values
             )
             self.RMT_layers.append(layer)
+
+        self.combine_token = combine_tokens
 
     def forward(self, z, x):
         # get rgb information (B,C,H,W)
@@ -78,14 +82,39 @@ class PureRMT(nn.Module):
         x = s_positive_mask * (0.9 * x_rgb + 0.1 * x_modal) + s_uncertain_mask * (0.5 * x_rgb + 0.5 * x_modal) + s_negative_mask * (
                 0.1 * x_rgb + 0.9 * x_modal)
 
-        z = z.permute(0, 2, 3, 1).contiguous()
-        x = x.permute(0, 2, 3, 1).contiguous()
+        z = z.permute(0, 2, 3, 1).contiguous()  # -> (B,P_N,P_N,C)
+        x = x.permute(0, 2, 3, 1).contiguous()  # -> (B,P_N,P_N,C)
 
         # in pure RMT backbone
         for layer in self.RMT_layers:
             z = layer(z)
             x = layer(x)
-        print("z shape" , z.shape)
-        print("x shape" , x.shape)
 
-        pass
+        x = x.reshape(x.shape[0], -1, x.shape[-1])
+        z = z.reshape(z.shape[0], -1, z.shape[-1])
+
+        x = self.combine_token(z, x, mode=self.combine_token_mode)
+        print("x shape", x.shape)
+
+        return x
+
+
+"""
+z shape torch.Size([16, 8, 8, 96])
+x shape torch.Size([16, 20, 20, 96])
+layer 1
+z shape torch.Size([16, 4, 4, 192])
+x shape torch.Size([16, 10, 10, 192])
+layer 2
+z shape torch.Size([16, 2, 2, 384])
+x shape torch.Size([16, 5, 5, 384])
+layer 3
+z shape torch.Size([16, 1, 1, 768])
+x shape torch.Size([16, 3, 3, 768])
+layer 4
+z shape torch.Size([16, 1, 1, 768])
+x shape torch.Size([16, 3, 3, 768])
+z shape torch.Size([16, 1, 768])
+x shape torch.Size([16, 9, 768])
+x shape torch.Size([16, 10, 768])
+"""
