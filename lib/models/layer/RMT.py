@@ -27,11 +27,11 @@ class DWConv2d(nn.Module):
         '''
         x: (b h w c)
         '''
-        x = x.permute(0, 3, 1, 2) #(b c h w)
-        x = self.conv(x) #(b c h w)
-        x = x.permute(0, 2, 3, 1) #(b h w c)
+        x = x.permute(0, 3, 1, 2)  # (b c h w)
+        x = self.conv(x)  # (b c h w)
+        x = x.permute(0, 2, 3, 1)  # (b h w c)
         return x
-    
+
 
 class RelPos2d(nn.Module):
 
@@ -53,7 +53,7 @@ class RelPos2d(nn.Module):
         decay = torch.log(1 - 2 ** (-initial_value - heads_range * torch.arange(num_heads, dtype=torch.float) / num_heads))
         self.register_buffer('angle', angle)
         self.register_buffer('decay', decay)
-        
+
     def generate_2d_decay(self, H: int, W: int):
         '''
         generate 2d decay mask, the result is (HW)*(HW)
@@ -61,22 +61,22 @@ class RelPos2d(nn.Module):
         index_h = torch.arange(H).to(self.decay)
         index_w = torch.arange(W).to(self.decay)
         grid = torch.meshgrid([index_h, index_w])
-        grid = torch.stack(grid, dim=-1).reshape(H*W, 2) #(H*W 2)
-        mask = grid[:, None, :] - grid[None, :, :] #(H*W H*W 2)
+        grid = torch.stack(grid, dim=-1).reshape(H * W, 2)  # (H*W 2)
+        mask = grid[:, None, :] - grid[None, :, :]  # (H*W H*W 2)
         mask = (mask.abs()).sum(dim=-1)
-        mask = mask * self.decay[:, None, None]  #(n H*W H*W)
+        mask = mask * self.decay[:, None, None]  # (n H*W H*W)
         return mask
-    
+
     def generate_1d_decay(self, l: int):
         '''
         generate 1d decay mask, the result is l*l
         '''
         index = torch.arange(l).to(self.decay)
-        mask = index[:, None] - index[None, :] #(l l)
-        mask = mask.abs() #(l l)
-        mask = mask * self.decay[:, None, None]  #(n l l)
+        mask = index[:, None] - index[None, :]  # (l l)
+        mask = mask.abs()  # (l l)
+        mask = mask * self.decay[:, None, None]  # (n l l)
         return mask
-    
+
     def forward(self, slen: Tuple[int], activate_recurrent=False, chunkwise_recurrent=False):
         '''
         slen: (h, w)
@@ -94,11 +94,12 @@ class RelPos2d(nn.Module):
             retention_rel_pos = (mask_h, mask_w)
 
         else:
-            mask = self.generate_2d_decay(slen[0], slen[1]) #(n l l)
+            mask = self.generate_2d_decay(slen[0], slen[1])  # (n l l)
             retention_rel_pos = mask
 
         return retention_rel_pos
-    
+
+
 class MaSAd(nn.Module):
 
     def __init__(self, embed_dim, num_heads, value_factor=1):
@@ -114,8 +115,7 @@ class MaSAd(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim * self.factor, bias=True)
         self.lepe = DWConv2d(embed_dim, 5, 1, 2)
 
-
-        self.out_proj = nn.Linear(embed_dim*self.factor, embed_dim, bias=True)
+        self.out_proj = nn.Linear(embed_dim * self.factor, embed_dim, bias=True)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -141,40 +141,39 @@ class MaSAd(nn.Module):
         lepe = self.lepe(v)
 
         k *= self.scaling
-        qr = q.view(bsz, h, w, self.num_heads, self.key_dim).permute(0, 3, 1, 2, 4) #(b n h w d1)
-        kr = k.view(bsz, h, w, self.num_heads, self.key_dim).permute(0, 3, 1, 2, 4) #(b n h w d1)
-
+        qr = q.view(bsz, h, w, self.num_heads, self.key_dim).permute(0, 3, 1, 2, 4)  # (b n h w d1)
+        kr = k.view(bsz, h, w, self.num_heads, self.key_dim).permute(0, 3, 1, 2, 4)  # (b n h w d1)
 
         '''
         qr: (b n h w d1)
         kr: (b n h w d1)
         v: (b h w n*d2)
         '''
-        
-        qr_w = qr.transpose(1, 2) #(b h n w d1)
-        kr_w = kr.transpose(1, 2) #(b h n w d1)
-        v = v.reshape(bsz, h, w, self.num_heads, -1).permute(0, 1, 3, 2, 4) #(b h n w d2)
 
-        qk_mat_w = qr_w @ kr_w.transpose(-1, -2) #(b h n w w)
-        qk_mat_w = qk_mat_w + mask_w  #(b h n w w)
-        qk_mat_w = torch.softmax(qk_mat_w, -1) #(b h n w w)
-        v = torch.matmul(qk_mat_w, v) #(b h n w d2)
+        qr_w = qr.transpose(1, 2)  # (b h n w d1)
+        kr_w = kr.transpose(1, 2)  # (b h n w d1)
+        v = v.reshape(bsz, h, w, self.num_heads, -1).permute(0, 1, 3, 2, 4)  # (b h n w d2)
 
+        qk_mat_w = qr_w @ kr_w.transpose(-1, -2)  # (b h n w w)
+        qk_mat_w = qk_mat_w + mask_w  # (b h n w w)
+        qk_mat_w = torch.softmax(qk_mat_w, -1)  # (b h n w w)
+        v = torch.matmul(qk_mat_w, v)  # (b h n w d2)
 
-        qr_h = qr.permute(0, 3, 1, 2, 4) #(b w n h d1)
-        kr_h = kr.permute(0, 3, 1, 2, 4) #(b w n h d1)
-        v = v.permute(0, 3, 2, 1, 4) #(b w n h d2)
+        qr_h = qr.permute(0, 3, 1, 2, 4)  # (b w n h d1)
+        kr_h = kr.permute(0, 3, 1, 2, 4)  # (b w n h d1)
+        v = v.permute(0, 3, 2, 1, 4)  # (b w n h d2)
 
-        qk_mat_h = qr_h @ kr_h.transpose(-1, -2) #(b w n h h)
-        qk_mat_h = qk_mat_h + mask_h  #(b w n h h)
-        qk_mat_h = torch.softmax(qk_mat_h, -1) #(b w n h h)
-        output = torch.matmul(qk_mat_h, v) #(b w n h d2)
-        
-        output = output.permute(0, 3, 1, 2, 4).flatten(-2, -1) #(b h w n*d2)
+        qk_mat_h = qr_h @ kr_h.transpose(-1, -2)  # (b w n h h)
+        qk_mat_h = qk_mat_h + mask_h  # (b w n h h)
+        qk_mat_h = torch.softmax(qk_mat_h, -1)  # (b w n h h)
+        output = torch.matmul(qk_mat_h, v)  # (b w n h d2)
+
+        output = output.permute(0, 3, 1, 2, 4).flatten(-2, -1)  # (b h w n*d2)
         output = output + lepe
         output = self.out_proj(output)
         return output
-    
+
+
 class MaSA(nn.Module):
 
     def __init__(self, embed_dim, num_heads, value_factor=1):
@@ -189,7 +188,7 @@ class MaSA(nn.Module):
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=True)
         self.v_proj = nn.Linear(embed_dim, embed_dim * self.factor, bias=True)
         self.lepe = DWConv2d(embed_dim, 5, 1, 2)
-        self.out_proj = nn.Linear(embed_dim*self.factor, embed_dim, bias=True)
+        self.out_proj = nn.Linear(embed_dim * self.factor, embed_dim, bias=True)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -206,8 +205,8 @@ class MaSA(nn.Module):
         '''
         bsz, h, w, _ = x.size()
         mask = rel_pos
-        
-        assert h*w == mask.size(1)
+
+        assert h * w == mask.size(1)
 
         q = self.q_proj(x)
         k = self.k_proj(x)
@@ -215,35 +214,35 @@ class MaSA(nn.Module):
         lepe = self.lepe(v)
 
         k *= self.scaling
-        qr = q.view(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4) #(b n h w d1)
-        kr = k.view(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4) #(b n h w d1)
+        qr = q.view(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4)  # (b n h w d1)
+        kr = k.view(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4)  # (b n h w d1)
 
-
-        qr = qr.flatten(2, 3) #(b n l d1)
-        kr = kr.flatten(2, 3) #(b n l d1)
-        vr = v.reshape(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4) #(b n h w d2)
-        vr = vr.flatten(2, 3) #(b n l d2)
-        qk_mat = qr @ kr.transpose(-1, -2) #(b n l l)
-        qk_mat = qk_mat + mask  #(b n l l)
-        qk_mat = torch.softmax(qk_mat, -1) #(b n l l)
-        output = torch.matmul(qk_mat, vr) #(b n l d2)
-        output = output.transpose(1, 2).reshape(bsz, h, w, -1) #(b h w n*d2)
+        qr = qr.flatten(2, 3)  # (b n l d1)
+        kr = kr.flatten(2, 3)  # (b n l d1)
+        vr = v.reshape(bsz, h, w, self.num_heads, -1).permute(0, 3, 1, 2, 4)  # (b n h w d2)
+        vr = vr.flatten(2, 3)  # (b n l d2)
+        qk_mat = qr @ kr.transpose(-1, -2)  # (b n l l)
+        qk_mat = qk_mat + mask  # (b n l l)
+        qk_mat = torch.softmax(qk_mat, -1)  # (b n l l)
+        output = torch.matmul(qk_mat, vr)  # (b n l d2)
+        output = output.transpose(1, 2).reshape(bsz, h, w, -1)  # (b h w n*d2)
         output = output + lepe
         output = self.out_proj(output)
         return output
 
+
 class FeedForwardNetwork(nn.Module):
     def __init__(
-        self,
-        embed_dim,
-        ffn_dim,
-        activation_fn=F.gelu,
-        dropout=0.0,
-        activation_dropout=0.0,
-        layernorm_eps=1e-6,
-        subln=False,
-        subconv=False
-        ):
+            self,
+            embed_dim,
+            ffn_dim,
+            activation_fn=F.gelu,
+            dropout=0.0,
+            activation_dropout=0.0,
+            layernorm_eps=1e-6,
+            subln=False,
+            subconv=False
+    ):
         super().__init__()
         self.embed_dim = embed_dim
         self.activation_fn = activation_fn
@@ -276,7 +275,8 @@ class FeedForwardNetwork(nn.Module):
         x = self.fc2(x)
         x = self.dropout_module(x)
         return x
-    
+
+
 class RetBlock(nn.Module):
 
     def __init__(self, retention: str, embed_dim: int, num_heads: int, ffn_dim: int, drop_path=0., layerscale=False, layer_init_values=1e-5):
@@ -295,25 +295,27 @@ class RetBlock(nn.Module):
         self.pos = DWConv2d(embed_dim, 3, 1, 1)
 
         if layerscale:
-            self.gamma_1 = nn.Parameter(layer_init_values * torch.ones(1, 1, 1, embed_dim),requires_grad=True)
-            self.gamma_2 = nn.Parameter(layer_init_values * torch.ones(1, 1, 1, embed_dim),requires_grad=True)
+            self.gamma_1 = nn.Parameter(layer_init_values * torch.ones(1, 1, 1, embed_dim), requires_grad=True)
+            self.gamma_2 = nn.Parameter(layer_init_values * torch.ones(1, 1, 1, embed_dim), requires_grad=True)
 
     def forward(
             self,
-            x: torch.Tensor, 
+            x: torch.Tensor,
             incremental_state=None,
             chunkwise_recurrent=False,
             retention_rel_pos=None
-        ):
+    ):
         x = x + self.pos(x)
         if self.layerscale:
-            x = x + self.drop_path(self.gamma_1 * self.retention(self.retention_layer_norm(x), retention_rel_pos, chunkwise_recurrent, incremental_state))
+            x = x + self.drop_path(
+                self.gamma_1 * self.retention(self.retention_layer_norm(x), retention_rel_pos, chunkwise_recurrent, incremental_state))
             x = x + self.drop_path(self.gamma_2 * self.ffn(self.final_layer_norm(x)))
         else:
             x = x + self.drop_path(self.retention(self.retention_layer_norm(x), retention_rel_pos, chunkwise_recurrent, incremental_state))
             x = x + self.drop_path(self.ffn(self.final_layer_norm(x)))
         return x
-    
+
+
 class PatchMerging(nn.Module):
     r""" Patch Merging Layer.
 
@@ -322,6 +324,7 @@ class PatchMerging(nn.Module):
         dim (int): Number of input channels.
         norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
     """
+
     def __init__(self, dim, out_dim, norm_layer=nn.LayerNorm):
         super().__init__()
         self.dim = dim
@@ -332,12 +335,13 @@ class PatchMerging(nn.Module):
         '''
         x: B H W C
         '''
-        x = x.permute(0, 3, 1, 2).contiguous()  #(b c h w)
-        x = self.reduction(x) #(b oc oh ow)
+        x = x.permute(0, 3, 1, 2).contiguous()  # (b c h w)
+        x = self.reduction(x)  # (b oc oh ow)
         x = self.norm(x)
-        x = x.permute(0, 2, 3, 1) #(b oh ow oc)
+        x = x.permute(0, 2, 3, 1)  # (b oh ow oc)
         return x
     
+
 class BasicLayer(nn.Module):
     """ A basic Swin Transformer layer for one stage.
 
@@ -361,8 +365,8 @@ class BasicLayer(nn.Module):
 
     def __init__(self, embed_dim, out_dim, depth, num_heads,
                  init_value: float, heads_range: float,
-                 ffn_dim=96., drop_path=0., norm_layer=nn.LayerNorm, chunkwise_recurrent=False,
-                 downsample: PatchMerging=None, use_checkpoint=False,
+                 ffn_dim=96, drop_path=0., norm_layer=nn.LayerNorm, chunkwise_recurrent=False,
+                 downsample: PatchMerging = None, use_checkpoint=False,
                  layerscale=False, layer_init_values=1e-5):
 
         super().__init__()
@@ -378,7 +382,7 @@ class BasicLayer(nn.Module):
 
         # build blocks
         self.blocks = nn.ModuleList([
-            RetBlock(flag, embed_dim, num_heads, ffn_dim, 
+            RetBlock(flag, embed_dim, num_heads, ffn_dim,
                      drop_path[i] if isinstance(drop_path, list) else drop_path, layerscale, layer_init_values)
             for i in range(depth)])
 
@@ -400,7 +404,8 @@ class BasicLayer(nn.Module):
         if self.downsample is not None:
             x = self.downsample(x)
         return x
-    
+
+
 class LayerNorm2d(nn.Module):
     def __init__(self, dim):
         super().__init__()
@@ -410,11 +415,12 @@ class LayerNorm2d(nn.Module):
         '''
         x: (b c h w)
         '''
-        x = x.permute(0, 2, 3, 1).contiguous() #(b h w c)
-        x = self.norm(x) #(b h w c)
+        x = x.permute(0, 2, 3, 1).contiguous()  # (b h w c)
+        x = self.norm(x)  # (b h w c)
         x = x.permute(0, 3, 1, 2).contiguous()
         return x
-    
+
+
 class PatchEmbed(nn.Module):
     r""" Image to Patch Embedding
 
@@ -432,13 +438,13 @@ class PatchEmbed(nn.Module):
         self.embed_dim = embed_dim
 
         self.proj = nn.Sequential(
-            nn.Conv2d(in_chans, embed_dim//2, 3, 2, 1),
-            nn.BatchNorm2d(embed_dim//2),
+            nn.Conv2d(in_chans, embed_dim // 2, 3, 2, 1),
+            nn.BatchNorm2d(embed_dim // 2),
             nn.GELU(),
-            nn.Conv2d(embed_dim//2, embed_dim//2, 3, 1, 1),
-            nn.BatchNorm2d(embed_dim//2),
+            nn.Conv2d(embed_dim // 2, embed_dim // 2, 3, 1, 1),
+            nn.BatchNorm2d(embed_dim // 2),
             nn.GELU(),
-            nn.Conv2d(embed_dim//2, embed_dim, 3, 2, 1),
+            nn.Conv2d(embed_dim // 2, embed_dim, 3, 2, 1),
             nn.BatchNorm2d(embed_dim),
             nn.GELU(),
             nn.Conv2d(embed_dim, embed_dim, 3, 1, 1),
@@ -447,14 +453,15 @@ class PatchEmbed(nn.Module):
 
     def forward(self, x):
         B, C, H, W = x.shape
-        x = self.proj(x).permute(0, 2, 3, 1) #(b h w c)
+        x = self.proj(x).permute(0, 2, 3, 1)  # (b h w c)
         return x
-    
+
+
 class VisRetNet(nn.Module):
 
     def __init__(self, in_chans=3, num_classes=1000,
                  embed_dims=[96, 192, 384, 768], depths=[2, 2, 6, 2], num_heads=[3, 6, 12, 24],
-                 init_values=[1, 1, 1, 1], heads_ranges=[3, 3, 3, 3], mlp_ratios=[3, 3, 3, 3], drop_path_rate=0.1, norm_layer=nn.LayerNorm, 
+                 init_values=[1, 1, 1, 1], heads_ranges=[3, 3, 3, 3], mlp_ratios=[3, 3, 3, 3], drop_path_rate=0.1, norm_layer=nn.LayerNorm,
                  patch_norm=True, use_checkpoints=[False, False, False, False], chunkwise_recurrents=[True, True, False, False],
                  layerscales=[False, False, False, False], layer_init_values=1e-6):
         super().__init__()
@@ -468,8 +475,7 @@ class VisRetNet(nn.Module):
 
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(in_chans=in_chans, embed_dim=embed_dims[0],
-            norm_layer=norm_layer if self.patch_norm else None)
-
+                                      norm_layer=norm_layer if self.patch_norm else None)
 
         # stochastic depth
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
@@ -479,12 +485,12 @@ class VisRetNet(nn.Module):
         for i_layer in range(self.num_layers):
             layer = BasicLayer(
                 embed_dim=embed_dims[i_layer],
-                out_dim=embed_dims[i_layer+1] if (i_layer < self.num_layers - 1) else None,
+                out_dim=embed_dims[i_layer + 1] if (i_layer < self.num_layers - 1) else None,
                 depth=depths[i_layer],
                 num_heads=num_heads[i_layer],
                 init_value=init_values[i_layer],
                 heads_range=heads_ranges[i_layer],
-                ffn_dim=int(mlp_ratios[i_layer]*embed_dims[i_layer]),
+                ffn_dim=int(mlp_ratios[i_layer] * embed_dims[i_layer]),
                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                 norm_layer=norm_layer,
                 chunkwise_recurrent=chunkwise_recurrents[i_layer],
@@ -494,7 +500,7 @@ class VisRetNet(nn.Module):
                 layer_init_values=layer_init_values
             )
             self.layers.append(layer)
-            
+
         self.norm = nn.BatchNorm2d(self.num_features)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
@@ -527,7 +533,7 @@ class VisRetNet(nn.Module):
         for layer in self.layers:
             x = layer(x)
 
-        x = self.norm(x.permute(0, 3, 1, 2)).flatten(2, 3) #(b c h*w)
+        x = self.norm(x.permute(0, 3, 1, 2)).flatten(2, 3)  # (b c h*w)
         x = self.avgpool(x)  # B C 1
         x = torch.flatten(x, 1)
         return x

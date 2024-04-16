@@ -3,18 +3,53 @@
 @Author : Leezed
 @Time : 2024/4/15 17:28
 """
+import torch
 import torch.nn as nn
 from lib.models.layer.patch_embed import PatchEmbed
 from lib.models.layer.score import ScoreLayerUseConv
+from lib.config.cfg_loader import CfgLoader
+from lib.models.layer.RMT import BasicLayer, PatchMerging
 
 
 class PureRMT(nn.Module):
-    def __init__(self, patch_size=16, embed_dim=768, cfg=None):
+    def __init__(self, patch_size=16, norm_layer=nn.LayerNorm, layer_init_values=1e-6, cfg: CfgLoader = None):
         super().__init__()
         self.patch_size = patch_size
-        self.embed_dim = embed_dim
-        self.patch_embed = PatchEmbed(patch_size=patch_size, in_chans=3, embed_dim=embed_dim, flatten=False)
-        self.score = ScoreLayerUseConv(embed_dim=embed_dim)
+        self.embed_dim = cfg.model.pureRMT.embed_dim
+        depths = cfg.model.pureRMT.depth
+        self.num_layers = len(depths)
+        num_heads = cfg.model.pureRMT.num_heads
+        init_values = cfg.model.pureRMT.init_values
+        head_ranges = cfg.model.pureRMT.head_ranges
+        mlp_ratios = cfg.model.pureRMT.mlp_ratios
+        drop_path_rate = cfg.model.pureRMT.drop_path_rate
+        chunkwise_recurrents = cfg.model.pureRMT.chunkwise_recurrents
+
+        self.patch_embed = PatchEmbed(patch_size=patch_size, in_chans=3, embed_dim=self.embed_dim[0], flatten=False)
+        self.score = ScoreLayerUseConv(embed_dim=self.embed_dim[0])
+
+        # stochastic depth
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+
+        self.RMT_layers = nn.ModuleList()
+        for i_layer in range(len(depths)):
+            layer = BasicLayer(
+                embed_dim=self.embed_dim[i_layer],
+                out_dim=self.embed_dim[i_layer + 1] if (i_layer < self.num_layers - 1) else None,
+                depth=depths[i_layer],
+                num_heads=num_heads[i_layer],
+                init_value=init_values[i_layer],
+                heads_range=head_ranges[i_layer],
+                ffn_dim=int(mlp_ratios[i_layer] * self.embed_dim[i_layer]),
+                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
+                norm_layer=norm_layer,
+                chunkwise_recurrent=chunkwise_recurrents[i_layer],
+                downsample=PatchMerging if i_layer < self.num_layers - 1 else None,
+                use_checkpoint=False,
+                layerscale=False,
+                layer_init_values=layer_init_values
+            )
+            self.RMT_layers.append(layer)
 
     def forward(self, z, x):
         # get rgb information (B,C,H,W)
@@ -37,10 +72,20 @@ class PureRMT(nn.Module):
         s_positive_mask, s_uncertain_mask, s_negative_mask = self.score(x_rgb)
 
         # the factor 0.9 0.1 0.5 may can be learned by the model itself
-        t = t_positive_mask * (0.9 * z_rgb + 0.1 * z_modal) + t_uncertain_mask * (0.5 * z_rgb + 0.5 * z_modal) + t_negative_mask * (
+        z = t_positive_mask * (0.9 * z_rgb + 0.1 * z_modal) + t_uncertain_mask * (0.5 * z_rgb + 0.5 * z_modal) + t_negative_mask * (
                 0.1 * z_rgb + 0.9 * z_modal)
 
         x = s_positive_mask * (0.9 * x_rgb + 0.1 * x_modal) + s_uncertain_mask * (0.5 * x_rgb + 0.5 * x_modal) + s_negative_mask * (
                 0.1 * x_rgb + 0.9 * x_modal)
+
+        z = z.permute(0, 2, 3, 1).contiguous()
+        x = x.permute(0, 2, 3, 1).contiguous()
+
+        # in pure RMT backbone
+        for layer in self.RMT_layers:
+            z = layer(z)
+            x = layer(x)
+        print("z shape" , z.shape)
+        print("x shape" , x.shape)
 
         pass
