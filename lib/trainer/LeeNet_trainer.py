@@ -17,6 +17,7 @@ class LeeNetTrainer(BaseTrainer):
         super().__init__(actor, loaders, optimizer, cfg, lr_scheduler)
 
         self.print_interval = cfg.train.print_interval
+        self.print_stats = None
 
         self.stats = OrderedDict({loader.name: None for loader in self.loaders})
 
@@ -62,7 +63,7 @@ class LeeNetTrainer(BaseTrainer):
 
             data['epoch'] = self.epoch
             # forward
-            loss, stats, = self.actor(data)
+            loss, stats = self.actor(data)
 
             # backward
             if loader.training:
@@ -137,13 +138,13 @@ class LeeNetTrainer(BaseTrainer):
             # print_str += 'TotalTime: %.3f  ,  ' % (current_time - prev_frame_time_backup)
 
             for name, val in self.stats[loader.name].items():
-                if (self.settings.print_stats is None or name in self.settings.print_stats):
+                if self.print_stats is None or name in self.print_stats:
                     if hasattr(val, 'avg'):
                         print_str += '%s: %.5f  ,  ' % (name, val.avg)
                     # else:
                     #     print_str += '%s: %r  ,  ' % (name, val)
 
             print(print_str[:-5])
-            log_str = print_str[:-5] + '\n'
-            with open(self.settings.log_file, 'a') as f:
-                f.write(log_str)
+            # log_str = print_str[:-5] + '\n'
+            # with open(self.settings.log_file, 'a') as f:
+            #     f.write(log_str)

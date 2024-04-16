@@ -94,7 +94,6 @@ class PureRMT(nn.Module):
         z = z.reshape(z.shape[0], -1, z.shape[-1])
 
         x = self.combine_token(z, x, mode=self.combine_token_mode)
-        print("x shape", x.shape)
 
         return x
 

@@ -8,6 +8,7 @@ from lib.config.cfg_loader import CfgLoader
 import lib.data.transforms as tfm
 from lib.dataset import names_to_datasets
 from lib.data import processing, sampler, image_loader, loader
+import torch
 
 
 def build_dataloaders(cfg: CfgLoader):
@@ -94,7 +95,7 @@ def build_dataloaders(cfg: CfgLoader):
                                               train_cls=train_cls)
         # val_sampler = DistributedSampler(dataset_val) if settings.local_rank != -1 else None
         val_sampler = None
-        loader_val = loader.LTRLoader(name = 'val',
+        loader_val = loader.LTRLoader(name='val',
                                       dataset=dataset_val,
                                       training=False,
                                       batch_size=cfg.train.batch_size,
@@ -103,3 +104,50 @@ def build_dataloaders(cfg: CfgLoader):
                                       stack_dim=1,
                                       sampler=val_sampler)
     return loader_train, loader_val
+
+
+def get_optimizer_scheduler(net, cfg):
+    # train_type = getattr(cfg.TRAIN.PROMPT, "TYPE", "")
+    # if 'vipt' in train_type:
+    #     # print("Only training prompt parameters. They are: ")
+    #     param_dicts = [
+    #         {"params": [p for n, p in net.named_parameters() if "prompt" in n and p.requires_grad]}
+    #     ]
+    #     for n, p in net.named_parameters():
+    #         if "prompt" not in n:
+    #             p.requires_grad = False
+    #         # else:
+    #         #     print(n)
+    # else:
+    #     param_dicts = [
+    #         {"params": [p for n, p in net.named_parameters() if "backbone" not in n and p.requires_grad]},
+    #         {
+    #             "params": [p for n, p in net.named_parameters() if "backbone" in n and p.requires_grad],
+    #             "lr": cfg.TRAIN.LR * cfg.TRAIN.BACKBONE_MULTIPLIER,
+    #         },
+    #     ]
+    #     if is_main_process():
+    #         print("Learnable parameters are shown below.")
+    #         for n, p in net.named_parameters():
+    #             if p.requires_grad:
+    #                 print(n)
+
+    param_dicts = [
+        {"params": [p for n, p in net.named_parameters()]},
+    ]
+
+    if cfg.train.optimizer == "ADAMW":
+        optimizer = torch.optim.AdamW(param_dicts, lr=cfg.train.lr,
+                                      weight_decay=cfg.train.weight_decay)
+    else:
+        raise ValueError("Unsupported Optimizer")
+    if cfg.train.scheduler.type == 'step':
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, cfg.train.lr_drop_epoch)
+    else:
+        raise ValueError("Unsupported Scheduler")
+    # elif cfg.TRAIN.SCHEDULER.TYPE == "Mstep":
+    #     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+    #                                                         milestones=cfg.TRAIN.SCHEDULER.MILESTONES,
+    #                                                         gamma=cfg.TRAIN.SCHEDULER.GAMMA)
+
+    return optimizer, lr_scheduler
