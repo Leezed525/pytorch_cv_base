@@ -149,6 +149,7 @@ leftboyleftblkbackpack
 basketball
 boyinsnowfield4
 whitecarinrain
+motofromdark
 the2ndboyunderbasket
 motocome2left
 boyshorts
@@ -326,6 +327,7 @@ whitegirlcrossingroad
 boyrightthelightbrown
 yellowexcesicebook
 rightgirlplayingphone
+whitewoman
 boybesidescarwithouthat
 aboyleft_1202
 peoplefromright_0109
@@ -424,6 +426,7 @@ bluecar
 3girl1
 boywithblkbackpack
 11righttwoboy
+orange
 blkridesbike
 leftbroom
 blackaftertrees
@@ -569,6 +572,7 @@ boy_1227
 rainysuitcase
 ab_leftfoam
 whiteboycome598
+rightumbrella_quezhen
 rightbackcup
 blkboyonleft
 lastrowrightboy
@@ -616,6 +620,7 @@ bluelittletruck
 boyride2trees
 whitecarturn137
 boyscome
+moto78
 girlaftertree
 rightboystand
 motostraught2east
