@@ -106,8 +106,9 @@ def change_fogboyscoming1_quezhen_inf_heiying_filename():
             continue
 
 
-def change_question_filename(question_path, vis_change, infra_change, sub_num):
-    for root, dirs, files in os.walk(question_path):
+def change_question_filename(question_name, vis_change, infra_change, sub_num):
+    path = "/media/star/data/Leezed/dataset/LasHeR/TrainingSet/trainingset/" + question_name
+    for root, dirs, files in os.walk(path):
         # 将文件名中改为{:06d}.jpg
         print(root)
         if (root.endswith('visible') and vis_change) or (root.endswith('infrared') and infra_change):
@@ -130,5 +131,4 @@ if __name__ == '__main__':
     # change_nightrightboy1_filename()
     # change_biked_filename()
     # change_fogboyscoming1_quezhen_inf_heiying_filename()
-    default_path = ""
-    change_question_filename(manglass2_path, True, True, 1)
+    change_question_filename('whitecarturn85', True, True, 1)
