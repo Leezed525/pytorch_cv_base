@@ -16,7 +16,8 @@ class ScorePureRMTMLP(nn.Module):
         self.cfg = cfg
 
     def forward(self, template: torch.Tensor, search: torch.Tensor):
-        out = self.backbone(template, search)
-        print("out shape in backbone ",out.shape)
+        out = self.backbone(template, search)  # out shape: (batch, 10, embed_dim[-1])
+        out = out.reshape(out.shape[0], -1)  # out shape: (batch, 10*embed_dim[-1])
+        print("out shape in backbone ", out.shape)
         predict_box = self.box_head(out)
         return predict_box
