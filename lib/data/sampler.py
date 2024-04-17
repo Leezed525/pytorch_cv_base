@@ -131,13 +131,13 @@ class TrackingSampler(torch.utils.data.Dataset):
                 # get images and bounding boxes (for searches)
                 # positive samples
                 if random.random() < self.pos_prob:
-                    label = torch.ones(1,)
+                    label = torch.ones(1, )
                     search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
                     search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros(
                         (H, W))] * self.num_search_frames
                 # negative samples
                 else:
-                    label = torch.zeros(1,)
+                    label = torch.zeros(1, )
                     if is_video_dataset:
                         search_frame_ids = self._sample_visible_ids(visible, num_ids=1, force_invisible=True)
                         if search_frame_ids is None:
@@ -172,9 +172,9 @@ class TrackingSampler(torch.utils.data.Dataset):
 
         return data
 
-    def get_center_box(self, H, W, ratio=1/8):
-        cx, cy, w, h = W/2, H/2, W * ratio, H * ratio
-        return torch.tensor([int(cx-w/2), int(cy-h/2), int(w), int(h)])
+    def get_center_box(self, H, W, ratio=1 / 8):
+        cx, cy, w, h = W / 2, H / 2, W * ratio, H * ratio
+        return torch.tensor([int(cx - w / 2), int(cy - h / 2), int(w), int(h)])
 
     def get_one_search(self):
         # Select a dataset
@@ -327,8 +327,8 @@ class TrackingSampler(torch.utils.data.Dataset):
             seq_info_dict = dataset.get_sequence_info(seq_id)
             visible = seq_info_dict['visible']
 
-            enough_visible_frames = visible.type(torch.int64).sum().item() > 2 * (
-                    self.num_search_frames + self.num_template_frames) and len(visible) >= 20
+            enough_visible_frames = visible.type(torch.int64).sum().item() > 2 * (self.num_search_frames + self.num_template_frames) and len(
+                visible) >= 20
 
             enough_visible_frames = enough_visible_frames or not is_video_dataset
         return seq_id, visible, seq_info_dict

@@ -136,7 +136,6 @@ toy01_indoor
 toy04_indoor
 toy05_indoor
 toy06_indoor
-toy07_indoor_320
 toy08_indoor
 toy10_indoor
 toydog_indoor
