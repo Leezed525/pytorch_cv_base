@@ -67,9 +67,9 @@ class LeeNetTrainer(BaseTrainer):
 
             # backward
             if loader.training:
-                self.optimizier.zero_grad()
+                self.optimizer.zero_grad()
                 loss.backward()
-                self.optimizier.step()
+                self.optimizer.step()
 
             # update statistics
             batch_size = data['template_images'].shape[loader.stack_dim]
@@ -145,6 +145,6 @@ class LeeNetTrainer(BaseTrainer):
                     #     print_str += '%s: %r  ,  ' % (name, val)
 
             print(print_str[:-5])
-            # log_str = print_str[:-5] + '\n'
-            # with open(self.settings.log_file, 'a') as f:
-            #     f.write(log_str)
+            log_str = print_str[:-5] + '\n'
+            with open(self._log_file, 'a') as f:
+                f.write(log_str)
