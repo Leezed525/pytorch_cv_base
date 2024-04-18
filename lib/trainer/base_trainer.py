@@ -56,8 +56,8 @@ class BaseTrainer:
         num_tries = 1
         for i in range(num_tries):
             try:
-                # if load_latest:
-                #     self.load_checkpoint()
+                if load_latest:
+                    self.load_checkpoint()
                 # if load_previous_ckpt:
                 #     directory = '{}/{}'.format(self._checkpoint_dir, self.settings.project_path_prv)
                 #     self.load_state_dict(directory)
@@ -175,7 +175,7 @@ class BaseTrainer:
         if fields is None:
             fields = checkpoint_dict.keys()
         if ignore_fields is None:
-            ignore_fields = ['settings']
+            ignore_fields = ['cfg']
 
             # Never load the scheduler. It exists in older checkpoints.
         ignore_fields.extend(['lr_scheduler', 'constructor', 'net_type', 'actor_type', 'net_info'])
@@ -201,8 +201,8 @@ class BaseTrainer:
         if 'epoch' in fields:
             self.lr_scheduler.last_epoch = self.epoch
             # 2021.1.10 Update the epoch in data_samplers
-            for loader in self.loaders:
-                loader.sampler.set_epoch(self.epoch)
+            # for loader in self.loaders:
+            #     loader.dataset.set_epoch(self.epoch)
         return True
 
     def train_epoch(self):
