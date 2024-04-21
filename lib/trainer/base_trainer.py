@@ -188,6 +188,8 @@ class BaseTrainer:
                 net.load_state_dict(checkpoint_dict[key])
             elif key == 'optimizer':
                 self.optimizer.load_state_dict(checkpoint_dict[key])
+                # self.optimizer.param_groups[0]['lr'] = self.cfg.train.lr
+                # print("lr = ", self.optimizer.param_groups[0]['lr'])
             else:
                 setattr(self, key, checkpoint_dict[key])
 

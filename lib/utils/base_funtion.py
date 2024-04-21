@@ -137,8 +137,7 @@ def get_optimizer_scheduler(net, cfg):
     ]
 
     if cfg.train.optimizer == "ADAMW":
-        optimizer = torch.optim.AdamW(param_dicts, lr=cfg.train.lr,
-                                      weight_decay=cfg.train.weight_decay)
+        optimizer = torch.optim.AdamW(param_dicts, lr=cfg.train.lr, weight_decay=cfg.train.weight_decay)
     else:
         raise ValueError("Unsupported Optimizer")
     if cfg.train.scheduler.type == 'step':
