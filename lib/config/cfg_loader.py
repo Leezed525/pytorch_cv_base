@@ -29,4 +29,5 @@ def env_setting(cfg_name):
     :param cfg_name:  如果不想获取local.yaml，可以传入其他的配置文件名
     :return: 返回配置文件
     """
-    return CfgLoader(get_cfg('configs', cfg_name if cfg_name is not None else 'local.yaml'))
+    cfg = CfgLoader(get_cfg('configs', cfg_name if cfg_name is not None else 'local.yaml'))
+    return cfg

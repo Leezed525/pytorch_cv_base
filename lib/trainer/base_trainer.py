@@ -36,10 +36,8 @@ class BaseTrainer:
 
         self._checkpoint_dir = os.path.join(cfg.workspace.dir, 'checkpoints')
         self.model_name = cfg.train.model_name + "_" + cfg.train.specifical_model_name
-        self._log_file = os.path.join(cfg.workspace.dir, 'logs', self.model_name + '.log')
-        # print("log_file", self._log_file)
-        # directory = '{}/{}'.format(self._checkpoint_dir, self.model_name)
-        # print("save directory", directory)
+        self._log_file = os.path.join(cfg.workspace.dir, 'logs', self.model_name,
+                                      cfg.workspace.log_file + '.log') if cfg.workspace.log_file is None else cfg.workspace.log_file
 
     def train(self, max_epochs, load_latest=False, fail_safe=True, load_previous_ckpt=False, distill=False):
         """
