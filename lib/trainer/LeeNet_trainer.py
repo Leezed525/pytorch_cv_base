@@ -18,7 +18,7 @@ class LeeNetTrainer(BaseTrainer):
 
         self.print_interval = cfg.train.print_interval
         self.print_stats = None
-
+        self.need_log = self.cfg.workspace.need_log
         self.stats = OrderedDict({loader.name: None for loader in self.loaders})
 
     def train_epoch(self):
@@ -145,6 +145,7 @@ class LeeNetTrainer(BaseTrainer):
                     #     print_str += '%s: %r  ,  ' % (name, val)
 
             print(print_str[:-5])
-            log_str = print_str[:-5] + '\n'
-            with open(self._log_file, 'a') as f:
-                f.write(log_str)
+            if self.need_log:
+                log_str = print_str[:-5] + '\n'
+                with open(self._log_file, 'a') as f:
+                    f.write(log_str)
