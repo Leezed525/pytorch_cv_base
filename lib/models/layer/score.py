@@ -41,8 +41,6 @@ class PLScoreLayerUseConv(nn.Module):
     def __init__(self, threshold1=0.33, threshold2=0.66, embed_dim=768):
         super().__init__()
         self.embed_dim = embed_dim
-        self.threshold1 = threshold1
-        self.threshold2 = threshold2
         self.conv1 = Conv(embed_dim, embed_dim // 2, 5, 1)
         self.conv2 = Conv(embed_dim // 2, 1, 3, 1)
 
