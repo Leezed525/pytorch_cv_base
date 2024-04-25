@@ -72,8 +72,8 @@ class PureRMT(nn.Module):
         z_modal, _ = self.patch_embed(z_modal)
 
         # use score function
-        t_positive_mask, t_uncertain_mask, t_negative_mask = self.score(z_rgb)  # (B,1,P_N,P_N)
-        s_positive_mask, s_uncertain_mask, s_negative_mask = self.score(x_rgb)
+        t_positive_mask, t_uncertain_mask, t_negative_mask = self.score(z_rgb)  # (B,1,P_N,P_N)  128 * 128
+        s_positive_mask, s_uncertain_mask, s_negative_mask = self.score(x_rgb)                 # 32 0 * 320
 
         # the factor 0.9 0.1 0.5 may can be learned by the model itself
         z = t_positive_mask * (0.9 * z_rgb + 0.1 * z_modal) + t_uncertain_mask * (0.5 * z_rgb + 0.5 * z_modal) + t_negative_mask * (
