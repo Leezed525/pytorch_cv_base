@@ -83,8 +83,8 @@ class PLScoreRMT(nn.Module):
             z = layer(z)
             x = layer(x)
 
-        x = x.reshape(x.shape[0], -1, x.shape[-1])
-        z = z.reshape(z.shape[0], -1, z.shape[-1])
+        x = x.reshape(x.shape[0], -1, x.shape[-1]) # -> (B,9,C)
+        z = z.reshape(z.shape[0], -1, z.shape[-1]) # -> (B,1,C)
 
         x = self.combine_token(z, x, mode=self.combine_token_mode)
 

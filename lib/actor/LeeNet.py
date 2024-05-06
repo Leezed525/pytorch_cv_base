@@ -7,6 +7,7 @@
 from lib.actor.base_actor import BaseActor
 import torch
 from lib.utils.box_ops import box_cxcywh_to_xyxy, box_xywh_to_xyxy
+from lib.utils.heapmap_utils import generate_heatmap
 
 
 class LeeNetActor(BaseActor):
@@ -54,11 +55,13 @@ class LeeNetActor(BaseActor):
     def compute_losses(self, pred_dict, gt_dict, return_status=True):
         # gt gaussian map
         gt_bbox = gt_dict['search_anno'][-1]  # (Ns, batch, 4) (x1,y1,w,h) -> (batch, 4
-        # gt_gaussian_maps = generate_heatmap(gt_dict['search_anno'], self.cfg.DATA.SEARCH.SIZE, self.cfg.MODEL.BACKBONE.STRIDE)
-        # gt_gaussian_maps = gt_gaussian_maps[-1].unsqueeze(1)  # (B,1,H,W)
+        gt_gaussian_maps = generate_heatmap(gt_dict['search_anno'], self.cfg.data.search.size, self.cfg.model.backbone.stride)
+        gt_gaussian_maps = gt_gaussian_maps[-1].unsqueeze(1)  # (B,1,H,W)
+        # print("gt_gaussian_maps shape: ", gt_gaussian_maps.shape)
+        # print("pred_dict['score_map'] shape", pred_dict['score_map'].shape)
 
         # Get boxes
-        pred_boxes = pred_dict
+        pred_boxes = pred_dict['pred_boxes']
 
         if torch.isnan(pred_boxes).any():
             raise ValueError("Network outputs is NAN! Stop Training")
@@ -77,10 +80,10 @@ class LeeNetActor(BaseActor):
         l1_loss = self.objective['l1'](pred_boxes_vec, gt_boxes_vec)  # (BN,4) (BN,4)
         # compute location loss
         location_loss = torch.tensor(0.0, device=l1_loss.device)
-        # if 'score_map' in pred_dict:
-        #     location_loss = self.objective['focal'](pred_dict['score_map'], gt_gaussian_maps)
-        # else:
-        #     location_loss = torch.tensor(0.0, device=l1_loss.device)
+        if 'score_map' in pred_dict:
+            location_loss = self.objective['focal'](pred_dict['score_map'], gt_gaussian_maps)
+        else:
+            location_loss = torch.tensor(0.0, device=l1_loss.device)
         # weighted sum
         loss = self.loss_weight['giou'] * giou_loss + self.loss_weight['l1'] * l1_loss + self.loss_weight['focal'] * location_loss
         if return_status:
