@@ -13,7 +13,7 @@ from lib.utils.backbone_utils import combine_tokens
 
 
 class PLScoreRMT(nn.Module):
-    def __init__(self, patch_size=16, norm_layer=nn.LayerNorm, layer_init_values=1e-6, cfg: CfgLoader = None):
+    def __init__(self, patch_size=16, norm_layer=nn.LayerNorm, layer_init_values=1e-6, down_sample: PatchMerging = None, cfg: CfgLoader = None):
         super().__init__()
         self.patch_size = patch_size
         self.embed_dim = cfg.model.pureRMT.embed_dim
@@ -46,7 +46,7 @@ class PLScoreRMT(nn.Module):
                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                 norm_layer=norm_layer,
                 chunkwise_recurrent=chunkwise_recurrents[i_layer],
-                downsample=PatchMerging if i_layer < self.num_layers - 1 else None,
+                downsample=down_sample if i_layer < self.num_layers - 1 else None,
                 use_checkpoint=False,
                 layerscale=False,
                 layer_init_values=layer_init_values
@@ -83,8 +83,8 @@ class PLScoreRMT(nn.Module):
             z = layer(z)
             x = layer(x)
 
-        x = x.reshape(x.shape[0], -1, x.shape[-1]) # -> (B,9,C)
-        z = z.reshape(z.shape[0], -1, z.shape[-1]) # -> (B,1,C)
+        x = x.reshape(x.shape[0], -1, x.shape[-1])  # -> (B,9,C)
+        z = z.reshape(z.shape[0], -1, z.shape[-1])  # -> (B,1,C)
 
         x = self.combine_token(z, x, mode=self.combine_token_mode)
 

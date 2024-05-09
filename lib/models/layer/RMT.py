@@ -396,7 +396,7 @@ class BasicLayer(nn.Module):
         b, h, w, d = x.size()
         rel_pos = self.Relpos((h, w), chunkwise_recurrent=self.chunkwise_recurrent)
         for blk in self.blocks:
-            if self.use_checkpoint:
+            if self.use_checkpoint: # checkpoint 是时间换显存的操作
                 tmp_blk = partial(blk, incremental_state=None, chunkwise_recurrent=self.chunkwise_recurrent, retention_rel_pos=rel_pos)
                 x = checkpoint.checkpoint(tmp_blk, x)
             else:

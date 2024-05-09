@@ -10,6 +10,7 @@ sys.path.append(os.getcwd())
 from lib.actor.LeeNet import LeeNetActor
 from lib.models.backbone.plscore_RMT import PLScoreRMT
 from lib.models.LeeNet.score_pureRMT_center import ScorePureRMTCENTER
+from lib.models.layer.RMT import PatchMerging
 from lib.models.head.mlp import MLP
 from lib.models.head.center_predictor import CenterPredictor
 from lib.trainer.LeeNet_trainer import LeeNetTrainer
@@ -23,7 +24,7 @@ import torch
 
 
 def build_model(cfg):
-    backbone = PLScoreRMT(cfg=cfg)
+    backbone = PLScoreRMT(down_sample=PatchMerging,cfg=cfg)
     stride = cfg.model.backbone.stride
     feat_sz = int(cfg.data.search.size / stride)
     head = CenterPredictor(inplanes=cfg.model.pureRMT.embed_dim[-1], channel=cfg.model.head.num_channels, feat_sz=feat_sz, stride=stride)

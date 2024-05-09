@@ -9,9 +9,8 @@ import sys
 sys.path.append(os.getcwd())
 from lib.actor.LeeNet import LeeNetActor
 from lib.models.backbone.plscore_RMT import PLScoreRMT
-from lib.models.LeeNet.score_pureRMT_mlp import ScorePureRMTMLP
-from lib.models.head.mlp import MLP
-from lib.models.layer.RMT import PatchMerging
+from lib.models.LeeNet.score_RMT_center import ScorePureRMTCENTER
+from lib.models.head.center_predictor import CenterPredictor
 from lib.trainer.LeeNet_trainer import LeeNetTrainer
 from lib.utils.base_funtion import build_dataloaders, get_optimizer_scheduler
 from lib.config.cfg_loader import env_setting
@@ -23,14 +22,16 @@ import torch
 
 
 def build_model(cfg):
-    backbone = PLScoreRMT(down_sample=PatchMerging, cfg=cfg)
-    head = MLP(input_dim=10 * cfg.model.pureRMT.embed_dim[-1], hidden_dim=cfg.model.pureRMT.embed_dim[-1], output_dim=4, num_layers=2)
-    model = ScorePureRMTMLP(backbone, head, cfg)
+    backbone = PLScoreRMT(cfg=cfg)
+
+    stride = cfg.model.backbone.stride
+    feat_sz = int(cfg.data.search.size / stride)
+    head = CenterPredictor(inplanes=cfg.model.pureRMT.embed_dim[-1], channel=cfg.model.head.num_channels, feat_sz=feat_sz, stride=stride)
+    model = ScorePureRMTCENTER(backbone, head, cfg)
     return model
 
-
 def run():
-    cfg = env_setting(cfg_name="plscore_pureRMT_mlp00001.yaml")
+    cfg = env_setting(cfg_name="plscore_RMT_center00001.yaml")
 
     loader_train, loader_val = build_dataloaders(cfg)
 
