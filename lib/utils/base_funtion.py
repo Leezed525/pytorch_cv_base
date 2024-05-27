@@ -102,7 +102,8 @@ def build_dataloaders(cfg: CfgLoader):
                                       num_workers=cfg.train.num_worker,
                                       drop_last=True,
                                       stack_dim=1,
-                                      sampler=val_sampler)
+                                      sampler=val_sampler,
+                                      epoch_interval=cfg.train.val_epoch_interval)
     return loader_train, loader_val
 
 
