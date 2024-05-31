@@ -19,6 +19,7 @@ from torch.nn import BCEWithLogitsLoss
 from lib.utils.box_ops import giou_loss
 from lib.utils.focal_loss import FocalLoss
 import torch
+import torch.backends.cudnn
 
 
 def build_model(cfg):
@@ -31,6 +32,9 @@ def build_model(cfg):
     return model
 
 def run():
+
+    torch.backends.cudnn.benchmark = True
+
     cfg = env_setting(cfg_name="plscore_RMT_center00001.yaml")
 
     loader_train, loader_val = build_dataloaders(cfg)
