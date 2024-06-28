@@ -241,7 +241,7 @@ class FeedForwardNetwork(nn.Module):
             activation_dropout=0.0,
             layernorm_eps=1e-6,
             subln=False,
-            subconv=False
+            subconv=True
     ):
         super().__init__()
         self.embed_dim = embed_dim

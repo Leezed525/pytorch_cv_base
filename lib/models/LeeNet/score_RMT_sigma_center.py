@@ -17,17 +17,17 @@ class ScorePureRMTCENTER(nn.Module):
         self.box_head = box_head
         self.cfg = cfg
 
-        self.mlp = MLP(input_dim=13,hidden_dim=225,output_dim=400,num_layers=5,BN=False)
-
-
+        self.mlp = MLP(input_dim=16, hidden_dim=225, output_dim=400, num_layers=5, BN=False)
 
     def forward(self, template: torch.Tensor, search: torch.Tensor):
         out = self.backbone(template, search)  # out shape: (batch, 13, embed_dim[-1])
-        out = out.permute(0,2,1)  # out shape: (batch, embed_dim[-1],13)
+        # print(out.shape) # (B,4,4,dim)
+        B, H, W, D = out.shape
+        out = out.reshape(B, D, H * W)
         out = self.mlp(out)
-        B,C,HW = out.shape
-        H,W = int(HW**0.5),int(HW**0.5)
-        out = out.view(B,C,H,W)
+        B, C, HW = out.shape
+        H = W = int(HW ** 0.5)
+        out = out.view(B, C, H, W)
         score_map_ctr, bbox, size_map, offset_map = self.box_head(out)
         outputs_coord = bbox
         outputs_coord_new = outputs_coord.view(-1, 1, 4)

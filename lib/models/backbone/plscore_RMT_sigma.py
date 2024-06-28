@@ -49,7 +49,7 @@ class PLScoreRMT(nn.Module):
                 chunkwise_recurrent=chunkwise_recurrents[i_layer],
                 downsample=down_sample if i_layer < self.num_layers - 1 else None,
                 use_checkpoint=False,
-                layerscale=False,
+                layerscale=cfg.model.pureRMT.layer_scales[i_layer],
                 layer_init_values=layer_init_values
             )
             self.RMT_layers.append(layer)
@@ -88,44 +88,32 @@ class PLScoreRMT(nn.Module):
         z_modal, _ = self.patch_embed(z_modal)
 
         # use score function
-        mz = self.score(z_rgb, z_modal)  # (B,1,P_N,P_N)
+        mz = self.score(z_rgb, z_modal)  # (B,C,P_N,P_N)
         mx = self.score(x_rgb, x_modal)
 
-        mz = mz.permute(0, 2, 3, 1).contiguous()  # -> (B,P_N,P_N,C)
-        mx = mx.permute(0, 2, 3, 1).contiguous()  # -> (B,P_N,P_N,C)
+        x_rgb = self.combine_token(x_rgb.flatten(2).permute(0, 2, 1), z_rgb.flatten(2).permute(0, 2, 1), mode=self.combine_token_mode)
+        x_modal = self.combine_token(x_modal.flatten(2).permute(0, 2, 1), z_modal.flatten(2).permute(0, 2, 1), mode=self.combine_token_mode)
+        mx = self.combine_token(mx.flatten(2).permute(0, 2, 1), mz.flatten(2).permute(0, 2, 1), mode=self.combine_token_mode)
 
-        x_modal = x_modal.permute(0, 2, 3, 1).contiguous()
-        z_modal = z_modal.permute(0, 2, 3, 1).contiguous()
 
-        x_rgb = x_rgb.permute(0, 2, 3, 1).contiguous()
-        z_rgb = z_rgb.permute(0, 2, 3, 1).contiguous()
+        H = W = int(x_rgb.shape[1] ** 0.5)
+
+        x_rgb = x_rgb.reshape(-1, H, W, self.embed_dim[0])  # -> (B,P_N,P_N,C)
+        x_modal = x_modal.reshape(-1, H, W, self.embed_dim[0])
+        mx = mx.reshape(-1, H, W, self.embed_dim[0])
+
+        # 这里可以加一个位置编码
 
         # in pure RMT backbone
         for i, layer in enumerate(self.RMT_layers):
-            mz = layer(mz)
             mx = layer(mx)
 
             x_rgb = layer(x_rgb)
-            z_rgb = layer(z_rgb)
 
             x_modal = layer(x_modal)
-            z_modal = layer(z_modal)
-
-            # mz = mz + self.score(z_rgb.permute(0, 3, 1, 2), z_modal.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
-            # mx = mx + self.score(x_rgb.permute(0, 3, 1, 2), x_modal.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
-
 
             x_f_rgb, x_f_modal = self.cross_mamba[i](x_rgb, x_modal)
             x_fuse = self.channel_attn_mamba[i](x_f_rgb, x_f_modal)
             mx += x_fuse
-
-            z_f_rgb, z_f_modal = self.cross_mamba[i](z_rgb, z_modal)
-            z_fuse = self.channel_attn_mamba[i](z_f_rgb, z_f_modal)
-            mz += z_fuse
-
-        mx = mx.reshape(mx.shape[0], -1, mx.shape[-1])  # -> (B,9,C)
-        mz = mz.reshape(mz.shape[0], -1, mz.shape[-1])  # -> (B,1,C)
-
-        mx = self.combine_token(mz, mx, mode=self.combine_token_mode)
 
         return mx
