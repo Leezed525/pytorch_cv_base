@@ -33,7 +33,7 @@ from timm.models.layers import Mlp, DropPath, trunc_normal_, lecun_normal_
 from timm.models.registry import register_model
 
 from lib.models.layer.patch_embed import PatchEmbed
-from lib.models.bat.base_backbone import BaseBackbone
+from lib.models.backbone.base_backbone import BaseBackbone
 
 
 class Attention(nn.Module):

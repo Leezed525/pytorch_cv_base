@@ -2,3 +2,4 @@
 test_tmp/
 configs/
 checkpoints/
+pretrained/
