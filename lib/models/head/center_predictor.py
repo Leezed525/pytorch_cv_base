@@ -115,3 +115,13 @@ class CenterPredictor(nn.Module, ):
         x_size4 = self.conv4_size(x_size3)
         score_map_size = self.conv5_size(x_size4)
         return _sigmoid(score_map_ctr), _sigmoid(score_map_size), score_map_offset
+
+
+def build_box_head(cfg, hidden_dim):
+    stride = cfg.model.backbone.stride
+
+    in_channel = hidden_dim
+    out_channel = cfg.model.head.num_channels
+    feat_sz = int(cfg.data.search.size / stride)
+    center_head = CenterPredictor(inplanes=in_channel, channel=out_channel, feat_sz=feat_sz, stride=stride)
+    return center_head

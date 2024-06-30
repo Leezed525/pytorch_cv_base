@@ -7,10 +7,12 @@ import torch
 import torch.nn as nn
 from lib.config.cfg_loader import CfgLoader
 
-from lib.models.head.mlp import MLP
+from lib.models.backbone.vit_ce_adapter import vit_base_patch16_224_ce_adapter
+from timm.models.layers import to_2tuple
+from lib.models.head.center_predictor import build_box_head
 
 
-class ScorePureRMTCENTER(nn.Module):
+class ScoreOSCENTER(nn.Module):
     def __init__(self, backbone, box_head, cfg: CfgLoader = None):
         super().__init__()
         self.backbone = backbone
@@ -65,3 +67,22 @@ class ScorePureRMTCENTER(nn.Module):
             return out
         else:
             raise NotImplementedError
+
+
+def build_score_os_sigma_center(cfg, trainging=True):
+    backbone = vit_base_patch16_224_ce_adapter(pretrained=False,
+                                               drop_path_rate=cfg.train.drop_path_rate,
+                                               ce_loc=cfg.model.backbone.ce_loc,
+                                               ce_keep_ratio=cfg.model.backbone.ce_keep_ratio,
+                                               search_size=to_2tuple(cfg.data.search.size),
+                                               template_size=to_2tuple(cfg.data.template.size),
+                                               new_patch_size=cfg.model.backbone.stride)
+    hidden_dim = backbone.embed_dim
+
+    box_head = build_box_head(cfg, hidden_dim)
+
+    model = ScoreOSCENTER(
+        backbone,
+        box_head,
+    )
+    return model
