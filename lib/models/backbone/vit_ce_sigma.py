@@ -14,6 +14,8 @@ from lib.models.layer.patch_embed import PatchEmbed
 from lib.utils.backbone_utils import combine_tokens, recover_tokens
 from .vit import VisionTransformer
 from ..layer.attn_blocks import CEBlock
+from lib.models.layer.vmamba import CrossMambaFusionBlock, ConcatMambaFusionBlock
+from lib.models.layer.score import PLScoreLayerUseConv
 
 _logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class VisionTransformerCE(VisionTransformer):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=True, representation_size=None, distilled=False,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., embed_layer=PatchEmbed, norm_layer=None,
-                 act_layer=None, weight_init='', ce_loc=None, ce_keep_ratio=None,search_size=None,template_size=None,new_patch_size=None):
+                 act_layer=None, weight_init='', ce_loc=None, ce_keep_ratio=None, search_size=None, template_size=None, new_patch_size=None):
         """
         Args:
             img_size (int, tuple): input image size
@@ -69,7 +71,7 @@ class VisionTransformerCE(VisionTransformer):
         act_layer = act_layer or nn.GELU
 
         self.patch_embed = embed_layer(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
+            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim, flatten=False)
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
@@ -86,6 +88,9 @@ class VisionTransformerCE(VisionTransformer):
         """add here, no need use backbone.finetune_track """  #
         self.pos_embed_z = nn.Parameter(torch.zeros(1, self.num_patches_template, embed_dim))
         self.pos_embed_x = nn.Parameter(torch.zeros(1, self.num_patches_search, embed_dim))
+
+        # score function
+        self.score = PLScoreLayerUseConv(embed_dim=self.embed_dim)
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
         blocks = []
@@ -105,6 +110,22 @@ class VisionTransformerCE(VisionTransformer):
             )
 
         self.blocks = nn.Sequential(*blocks)
+
+        self.cross_mamba = nn.ModuleList(
+            CrossMambaFusionBlock(
+                hidden_dim=self.embed_dim,
+                mlp_ratio=0.0,
+                d_state=4,
+            ) for i in range(depth)
+        )
+        self.channel_attn_mamba = nn.ModuleList(
+            ConcatMambaFusionBlock(
+                hidden_dim=self.embed_dim,
+                mlp_ratio=0.0,
+                d_state=4,
+            ) for i in range(depth)
+        )
+
         self.norm = norm_layer(embed_dim)
 
         self.init_weights(weight_init)
@@ -114,9 +135,37 @@ class VisionTransformerCE(VisionTransformer):
                          return_last_attn=False
                          ):
         B, H, W = x.shape[0], x.shape[2], x.shape[3]
+        # rgb_img
+        x_rgb = x[:, :3, :, :]
+        z_rgb = z[:, :3, :, :]
 
-        x = self.patch_embed(x)
-        z = self.patch_embed(z)
+        # modal_img
+        x_modal = x[:, 3:, :, :]
+        z_modal = z[:, 3:, :, :]
+
+        x, z = x_rgb, z_rgb
+
+        x, _ = self.patch_embed(x)  # (B, 768,16,16)
+        z, _ = self.patch_embed(z)  # (B, 768,8,8)
+
+        x_modal, _ = self.patch_embed(x_modal)
+        z_modal, _ = self.patch_embed(z_modal)
+
+        mx = self.score(x, x_modal)  # (B, 768,16,16)
+        mz = self.score(z, z_modal)  # (B, 768,8,8)
+
+        zw, zh = mz.shape[2], mz.shape[3]
+        xw, xh = mx.shape[2], mx.shape[3]
+
+        # (B,C,H,W) -> (B,H*W,C)
+        x = x.flatten(2).transpose(1, 2)
+        z = z.flatten(2).transpose(1, 2)
+
+        x_modal = x_modal.flatten(2).transpose(1, 2)
+        z_modal = z_modal.flatten(2).transpose(1, 2)
+
+        mx = mx.flatten(2).transpose(1, 2)
+        mz = mz.flatten(2).transpose(1, 2)
 
         # attention mask handling
         # B, H, W
@@ -134,18 +183,40 @@ class VisionTransformerCE(VisionTransformer):
             cls_tokens = self.cls_token.expand(B, -1, -1)
             cls_tokens = cls_tokens + self.cls_pos_embed
 
+        # print("x.shape", x.shape)  # x.shape torch.Size([16, 256, 768])
+        # print("z.shape", z.shape)  # z.shape torch.Size([16, 64, 768])
+        # print("x_modal.shape", x_modal.shape)  # x_modal.shape torch.Size([16, 256, 768])
+        # print("z_modal.shape", z_modal.shape)  # z_modal.shape torch.Size([16, 64, 768])
+
         z += self.pos_embed_z
         x += self.pos_embed_x
+
+        z_modal += self.pos_embed_z
+        x_modal += self.pos_embed_x
+
+        mz += self.pos_embed_z
+        mx += self.pos_embed_x
 
         if self.add_sep_seg:
             x += self.search_segment_pos_embed
             z += self.template_segment_pos_embed
+            x_modal += self.search_segment_pos_embed
+            z_modal += self.template_segment_pos_embed
+            mx += self.search_segment_pos_embed
+            mz += self.template_segment_pos_embed
 
         x = combine_tokens(z, x, mode=self.cat_mode)
+        x_modal = combine_tokens(z_modal, x_modal, mode=self.cat_mode)
+        mx = combine_tokens(mz, mx, mode=self.cat_mode)
+
+        # print("after combine :x", x.shape)  # x.shape torch.Size([16, 320, 768])
+
         if self.add_cls_token:
             x = torch.cat([cls_tokens, x], dim=1)
+            x_modal = torch.cat([cls_tokens, x_modal], dim=1)
 
         x = self.pos_drop(x)
+        x_modal = self.pos_drop(x_modal)
 
         lens_z = self.pos_embed_z.shape[1]
         lens_x = self.pos_embed_x.shape[1]
@@ -155,20 +226,71 @@ class VisionTransformerCE(VisionTransformer):
 
         global_index_s = torch.linspace(0, lens_x - 1, lens_x).to(x.device)
         global_index_s = global_index_s.repeat(B, 1)
+
+        global_index_t_modal = torch.linspace(0, lens_z - 1, lens_z, dtype=torch.int64).to(x.device)
+        global_index_t_modal = global_index_t_modal.repeat(B, 1)
+
+        global_index_s_modal = torch.linspace(0, lens_x - 1, lens_x, dtype=torch.int64).to(x.device)
+        global_index_s_modal = global_index_s_modal.repeat(B, 1)
+
+        global_index_mt = torch.linspace(0, lens_z - 1, lens_z).to(x.device)
+        global_index_mt = global_index_mt.repeat(B, 1)
+
+        global_index_ms = torch.linspace(0, lens_x - 1, lens_x).to(x.device)
+        global_index_ms = global_index_ms.repeat(B, 1)
+
         removed_indexes_s = []
-        for i, blk in enumerate(self.blocks):
-            x, global_index_t, global_index_s, removed_index_s, attn = \
-                blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate)
+        removed_indexes_s_modal = []
+        removed_indexes_ms = []
+
+        for i, blk in enumerate(self.blocks):  # -> (B,320,768)
+            x, global_index_t, global_index_s, removed_index_s, attn = blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate)
+
+            x_modal, global_index_t_modal, global_index_s_modal, removed_index_s_modal, attn_modal = blk(x_modal, global_index_t_modal,
+                                                                                                         global_index_s_modal, mask_x,
+                                                                                                         ce_template_mask, ce_keep_rate)
+            mx, global_index_mt, global_index_ms, removed_index_ms, attn = blk(mx, global_index_mt, global_index_ms, mask_x, ce_template_mask,
+                                                                               ce_keep_rate)
+
+            # sigma fusion
+            x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
+            x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
+            mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
+
+            x_f, x_f_modal = self.cross_mamba[i](x, x_modal)
+            x_fuse = self.channel_attn_mamba[i](x_f, x_f_modal)
+            mx += x_fuse
+
+            z_f, z_f_modal = self.cross_mamba[i](z, z_modal)
+            z_fuse = self.channel_attn_mamba[i](z_f, z_f_modal)
+            mz += z_fuse
+
+            x = self.wh2token(x, z, xw, xh, zw, zh, B)
+            x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
+            mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
 
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)
+                removed_indexes_s_modal.append(removed_index_s_modal)
+                removed_indexes_ms.append(removed_index_ms)
 
         x = self.norm(x)
+        x_modal = self.norm(x_modal)
+        mx = self.norm(mx)
+
         lens_x_new = global_index_s.shape[1]
         lens_z_new = global_index_t.shape[1]
+        lens_x_modal_new = global_index_s_modal.shape[1]
+        lens_z_modal_new = global_index_s_modal.shape[1]
+        lens_mx_new = global_index_ms.shape[1]
+        lens_mz_new = global_index_ms.shape[1]
 
         z = x[:, :lens_z_new]
         x = x[:, lens_z_new:]
+        z_modal = x_modal[:, :lens_z_modal_new]
+        x_modal = x_modal[:, lens_z_modal_new:]
+        mz = mx[:, :lens_mz_new]
+        mx = mx[:, lens_mz_new:]
 
         if removed_indexes_s and removed_indexes_s[0] is not None:
             removed_indexes_cat = torch.cat(removed_indexes_s, dim=1)
@@ -182,10 +304,40 @@ class VisionTransformerCE(VisionTransformer):
             # x = x.gather(1, index_all.unsqueeze(-1).expand(B, -1, C).argsort(1))
             x = torch.zeros_like(x).scatter_(dim=1, index=index_all.unsqueeze(-1).expand(B, -1, C).to(torch.int64), src=x)
 
-        x = recover_tokens(x, lens_z_new, lens_x, mode=self.cat_mode)
+        if removed_indexes_s_modal and removed_indexes_s_modal[0] is not None:
+            removed_indexes_cat_modal = torch.cat(removed_indexes_s_modal, dim=1)
+
+            pruned_lens_x_modal = lens_x - lens_x_modal_new
+            pad_x_modal = torch.zeros([B, pruned_lens_x_modal, x_modal.shape[2]], device=x.device)
+            x_modal = torch.cat([x_modal, pad_x_modal], dim=1)
+            index_all = torch.cat([global_index_s_modal, removed_indexes_cat_modal], dim=1)
+            # recover original token order
+            C = x_modal.shape[-1]
+            # x = x.gather(1, index_all.unsqueeze(-1).expand(B, -1, C).argsort(1))
+            x_modal = torch.zeros_like(x_modal).scatter_(dim=1, index=index_all.unsqueeze(-1).expand(B, -1, C).to(torch.int64), src=x_modal)
+
+        if removed_indexes_ms and removed_indexes_ms[0] is not None:
+            removed_indexes_cat_m = torch.cat(removed_indexes_ms, dim=1)
+
+            pruned_lens_mx = lens_x - lens_mx_new
+            pad_mx = torch.zeros([B, pruned_lens_mx, mx.shape[2]], device=x.device)
+            mx = torch.cat([mx, pad_mx], dim=1)
+            index_all = torch.cat([global_index_ms, removed_indexes_cat_m], dim=1)
+            # recover original token order
+            C = mx.shape[-1]
+            # x = x.gather(1, index_all.unsqueeze(-1).expand(B, -1, C).argsort(1))
+            mx = torch.zeros_like(mx).scatter_(dim=1, index=index_all.unsqueeze(-1).expand(B, -1, C).to(torch.int64), src=mx)
+
+        x = recover_tokens(x, lens_z_new, lens_x, mode=self.cat_mode)  # -> (B, 256, 768)
+        x_modal = recover_tokens(x_modal, lens_z_modal_new, lens_x, mode=self.cat_mode)
+        mx = recover_tokens(mx, lens_mz_new, lens_x, mode=self.cat_mode)
 
         # re-concatenate with the template, which may be further used by other modules
-        x = torch.cat([z, x], dim=1)
+        x = torch.cat([z, x], dim=1)  # -> (b,320,768)
+        x_modal = torch.cat([z_modal, x_modal], dim=1)
+        mx = torch.cat([mz, mx], dim=1)
+
+        x = x + x_modal + mx
 
         aux_dict = {
             "attn": attn,
@@ -201,6 +353,14 @@ class VisionTransformerCE(VisionTransformer):
         x, aux_dict = self.forward_features(z, x, ce_template_mask=ce_template_mask, ce_keep_rate=ce_keep_rate, )
 
         return x, aux_dict
+
+    def token2wh(self, token, xw, xh, zw, zh, B):
+        return token[:, zw * zh:, :].reshape(B, xw, xh, -1), token[:, :zw * zh, :].reshape(B, zw, zh, -1)
+
+    def wh2token(self, x, z, xw, xh, zw, zh, B):
+        x = x.reshape(B, xw * xh, -1)
+        z = z.reshape(B, zw * zh, -1)
+        return combine_tokens(z, x, mode=self.cat_mode)
 
 
 def _create_vision_transformer(pretrained=False, **kwargs):

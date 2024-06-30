@@ -51,16 +51,19 @@ class PLScoreLayerUseConv(nn.Module):
         self.confident_conv2 = Conv(embed_dim // 2, 1, 8, 1, 0)
 
     def forward(self, x_rgb, x_modal):
+        # 使用clone来避免梯度回传报错的问题
+        x_rgb_clone = x_rgb.clone()
+        x_modal_clone = x_modal.clone()
         # x shape: (B,C,H,W)
-        positive_mask = self.sig(self.conv2(self.conv1(x_rgb)))  # (B,1,H,W)
+        positive_mask = self.sig(self.conv2(self.conv1(x_rgb_clone)))  # (B,1,H,W)
         negative_mask = 1 - positive_mask
 
         # 根据x_rgb 和 x_modal 来生成整体rgb图像的可信度，输出一个在0.5 - 0.9之间的值
-        x_tmp = torch.cat((x_rgb, x_modal), dim=1)
+        x_tmp = torch.cat((x_rgb_clone, x_modal_clone), dim=1)
         x_tmp = self.avg(x_tmp)
         x_tmp = self.sig(self.confident_conv2(self.confident_conv1(x_tmp)))
         value = x_tmp * 0.4 + 0.5
-        x = positive_mask * (value * x_rgb + (1 - value) * x_modal) + (0.5 * x_rgb + 0.5 * x_modal) + negative_mask * (
-                (1 - value) * x_rgb + value * x_modal)
+        x = positive_mask * (value * x_rgb_clone + (1 - value) * x_modal_clone) + (0.5 * x_rgb_clone + 0.5 * x_modal_clone) + negative_mask * (
+                (1 - value) * x_rgb_clone + value * x_modal_clone)
 
         return x

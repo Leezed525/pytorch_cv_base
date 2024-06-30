@@ -14,10 +14,11 @@ from lib.models.head.center_predictor_origin import build_box_head
 
 
 class ScoreOSCENTER(nn.Module):
-    def __init__(self, backbone, box_head, cfg: CfgLoader = None):
+    def __init__(self, backbone, box_head, cfg: CfgLoader = None, head_type='CENTER'):
         super().__init__()
         self.backbone = backbone
         self.box_head = box_head
+        self.head_type = head_type
 
         self.feat_sz_s = int(box_head.feat_sz)
         self.feat_len_s = int(box_head.feat_sz ** 2)
