@@ -8,10 +8,11 @@ import glob
 
 import torch
 from lib.config.cfg_loader import CfgLoader
+from lib.utils.multigpu import is_multi_gpu
 
 
 class BaseTrainer:
-    def __init__(self, actor, loaders, optimizer, cfg: CfgLoader, lr_scheduler=None):
+    def __init__(self, actor, loaders, optimizer, cfg: CfgLoader, lr_scheduler=None, rank=-1):
         """
 
         :param actor: the actor for training the network
@@ -28,11 +29,11 @@ class BaseTrainer:
         self.epoch = 0
         self.stats = {}
 
-        self.device = cfg.train.device
-        # 添加多卡检测，暂时没有实现
-        if isinstance(self.device, str):
-            self.device = torch.device(self.device)
+        self.device = torch.device("cuda:%d" % rank if rank != -1 and cfg.train.multi_gpus else cfg.train.device)
+
+        self.actor.to(self.device)
         self.cfg = cfg
+        self.rank = rank
 
         self._checkpoint_dir = os.path.join(cfg.workspace.dir, 'checkpoints')
         self.model_name = cfg.train.model_name + "_" + cfg.train.specifical_model_name
@@ -75,7 +76,8 @@ class BaseTrainer:
                     save_epoch_interval = self.cfg.train.save_epoch_interval
                     if epoch % save_epoch_interval == 0:
                         if self._checkpoint_dir:
-                            self.save_checkpoint()
+                            if self.rank in [-1, 0]:
+                                self.save_checkpoint()
             except:
                 print('Training crashed at epoch {}'.format(epoch))
                 raise
@@ -93,7 +95,7 @@ class BaseTrainer:
     def save_checkpoint(self):
         """Saves a checkpoint of the network and other variables."""
 
-        net = self.actor.net
+        net = self.actor.net.module if is_multi_gpu(self.actor.net) else self.actor.net
 
         actor_type = type(self.actor).__name__
         net_type = type(net).__name__
@@ -136,7 +138,7 @@ class BaseTrainer:
                 Loads the file from the given absolute path (str).
         """
 
-        net = self.actor.net
+        net = self.actor.net.module if is_multi_gpu(self.actor.net) else self.actor.net
 
         actor_type = type(self.actor).__name__
         net_type = type(net).__name__

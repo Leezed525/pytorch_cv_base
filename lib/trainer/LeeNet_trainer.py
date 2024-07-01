@@ -8,13 +8,14 @@ import torch
 from lib.trainer.base_trainer import BaseTrainer
 from collections import OrderedDict
 from lib.trainer.stats import AverageMeter, StatValue
+from torch.utils.data.distributed import DistributedSampler
 import time
 import datetime
 
 
 class LeeNetTrainer(BaseTrainer):
-    def __init__(self, actor, loaders, optimizer, cfg, lr_scheduler=None):
-        super().__init__(actor, loaders, optimizer, cfg, lr_scheduler)
+    def __init__(self, actor, loaders, optimizer, cfg, lr_scheduler=None,rank=-1):
+        super().__init__(actor, loaders, optimizer, cfg, lr_scheduler,rank)
 
         self.print_interval = cfg.train.print_interval
         self.print_stats = None
@@ -24,6 +25,8 @@ class LeeNetTrainer(BaseTrainer):
     def train_epoch(self):
         for loader in self.loaders:
             if self.epoch % loader.epoch_interval == 0:
+                if isinstance(loader.sampler, DistributedSampler):
+                    loader.sampler.set_epoch(self.epoch)
                 self.cycle_dataset(loader)
 
         self._stats_new_epoch()

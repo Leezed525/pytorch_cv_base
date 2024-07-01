@@ -18,12 +18,6 @@ class LeeNetActor(BaseActor):
         self.cfg = cfg
         self.batch_size = self.cfg.train.batch_size
 
-        self.device = cfg.train.device
-        if isinstance(self.device, str):
-            self.device = torch.device(self.device)
-
-        self.net.to(self.device)
-
     def __call__(self, data):
         """
 
@@ -92,7 +86,7 @@ class LeeNetActor(BaseActor):
         except Exception as e:
             print(e)
             print("giou loss compute error")
-            giou_loss, iou = torch.tensor(0.0).to(self.device), torch.tensor(0.0).to(self.device)
+            giou_loss, iou = torch.tensor(0.0).cuda(), torch.tensor(0.0).cuda()
         # compute l1 loss
         l1_loss = self.objective['l1'](pred_boxes_vec, gt_boxes_vec)  # (BN,4) (BN,4)
         # compute location loss

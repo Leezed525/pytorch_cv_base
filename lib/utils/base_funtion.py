@@ -9,9 +9,10 @@ import lib.data.transforms as tfm
 from lib.dataset import names_to_datasets
 from lib.data import processing, sampler, image_loader, loader
 import torch
+from torch.utils.data.distributed import DistributedSampler
 
 
-def build_dataloaders(cfg: CfgLoader):
+def build_dataloaders(cfg: CfgLoader, world_size=1, local_rank=-1):
     transform_joint = tfm.Transform(tfm.ToGrayscale(probability=0.05),
                                     tfm.RandomHorizontalFlip(probability=0.5))
     transform_train = tfm.Transform(tfm.ToTensorAndJitter(0.2),
@@ -66,10 +67,8 @@ def build_dataloaders(cfg: CfgLoader):
                                             frame_sample_mode=sampler_mode,
                                             train_cls=train_cls)
 
-    # train_sampler = DistributedSampler(dataset_train) if settings.local_rank != -1 else None
-    # shuffle = False if cfg.local_rank != -1 else True
-    train_sampler = None
-    shuffle = False
+    train_sampler = DistributedSampler(dataset_train, rank=local_rank) if local_rank != -1 else None
+    shuffle = False if local_rank != -1 else True
 
     loader_train = loader.LTRLoader(name='train',
                                     dataset=dataset_train,
@@ -93,8 +92,7 @@ def build_dataloaders(cfg: CfgLoader):
                                               processing=data_processing_val,
                                               frame_sample_mode=sampler_mode,
                                               train_cls=train_cls)
-        # val_sampler = DistributedSampler(dataset_val) if settings.local_rank != -1 else None
-        val_sampler = None
+        val_sampler = DistributedSampler(dataset_val, rank=local_rank) if local_rank != -1 else None
         loader_val = loader.LTRLoader(name='val',
                                       dataset=dataset_val,
                                       training=False,

@@ -18,6 +18,16 @@ class CfgLoader(dict):
         else:
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{item}'")
 
+    def __setattr__(self, key, value):
+        print("in set")
+        print(key)
+        print(value)
+        print("before change :",self[key])
+
+        self[key] = value
+        print("after change :",self[key])
+
+
 
 def get_cfg(path, cfg_name):
     return YamlUtil(path, cfg_name).content
