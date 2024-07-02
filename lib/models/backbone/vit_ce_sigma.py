@@ -116,14 +116,14 @@ class VisionTransformerCE(VisionTransformer):
                 hidden_dim=self.embed_dim,
                 mlp_ratio=0.0,
                 d_state=4,
-            ) for i in range(depth)
+            ) for i in range(4)
         )
         self.channel_attn_mamba = nn.ModuleList(
             ConcatMambaFusionBlock(
                 hidden_dim=self.embed_dim,
                 mlp_ratio=0.0,
                 d_state=4,
-            ) for i in range(depth)
+            ) for i in range(4)
         )
 
         self.norm = norm_layer(embed_dim)
@@ -252,22 +252,23 @@ class VisionTransformerCE(VisionTransformer):
             mx, global_index_mt, global_index_ms, removed_index_ms, attn = blk(mx, global_index_mt, global_index_ms, mask_x, ce_template_mask,
                                                                                ce_keep_rate)
 
-            # sigma fusion
-            x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
-            x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
-            mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
+            if i % 4 == 3:
+                # sigma fusion
+                x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
+                x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
+                mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
 
-            x_f, x_f_modal = self.cross_mamba[i](x, x_modal)
-            x_fuse = self.channel_attn_mamba[i](x_f, x_f_modal)
-            mx += x_fuse
+                x_f, x_f_modal = self.cross_mamba[i // 4](x, x_modal)
+                x_fuse = self.channel_attn_mamba[i // 4](x_f, x_f_modal)
+                mx += x_fuse
 
-            z_f, z_f_modal = self.cross_mamba[i](z, z_modal)
-            z_fuse = self.channel_attn_mamba[i](z_f, z_f_modal)
-            mz += z_fuse
+                z_f, z_f_modal = self.cross_mamba[i // 4](z, z_modal)
+                z_fuse = self.channel_attn_mamba[i // 4](z_f, z_f_modal)
+                mz += z_fuse
 
-            x = self.wh2token(x, z, xw, xh, zw, zh, B)
-            x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
-            mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
+                x = self.wh2token(x, z, xw, xh, zw, zh, B)
+                x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
+                mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
 
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)

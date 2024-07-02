@@ -28,7 +28,6 @@ def run():
     cfg = env_setting(cfg_name="plscore_os_sigma_center.yaml")
     local_rank = int(os.environ.get('LOCAL_RANK', -1))
     world_size = int(os.environ.get('WORLD_SIZE', 1))
-    print("world_size:", world_size)
 
     # 多卡配置
     if local_rank != -1:
@@ -51,12 +50,25 @@ def run():
 
     net = build_score_os_sigma_center(cfg)
     model_dict = net.state_dict()
-
     state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
     model_dict.update(state_dict)
     net.load_state_dict(model_dict, strict=False)
-    print("导入预训练权重成功")
-    # 导入预训练权重
+    print("导入OSTrack 预训练权重成功")
+
+    # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/ViPT_deep_rgbt.pth"
+    #
+    # checkpoint = torch.load(pretrained)['net']
+    #
+    # net = build_score_os_sigma_center(cfg)
+    # model_dict = net.state_dict()
+    #
+    # state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
+    # model_dict.update(state_dict)
+    # net.load_state_dict(model_dict, strict=False)
+
+    # print("导入vipt 预训练权重成功")
+
+    # 导入预训练权重结束
 
     net.cuda()
     net = DDP(net, device_ids=[local_rank], find_unused_parameters=True)
@@ -70,7 +82,7 @@ def run():
 
     # location loss 没计算出来
 
-    trainer = LeeNetTrainer(actor=actor, loaders=[loader_train, loader_val], optimizer=optimizer, lr_scheduler=lr_scheduler, cfg=cfg,rank=local_rank)
+    trainer = LeeNetTrainer(actor=actor, loaders=[loader_train, loader_val], optimizer=optimizer, lr_scheduler=lr_scheduler, cfg=cfg, rank=local_rank)
     print("开始训练")
     trainer.train(cfg.train.epoch, load_latest=True)
 

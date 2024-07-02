@@ -106,6 +106,18 @@ def build_dataloaders(cfg: CfgLoader, world_size=1, local_rank=-1):
 
 
 def get_optimizer_scheduler(net, cfg):
+    if cfg.train.specifical_model_name == 'plScore_OS_sigma_CENTER':
+        print("only train sigma and plscore parameters")
+        param_dicts = [
+            {"params": [p for n, p in net.named_parameters() if "cross_mamba" in n or "channel_attn_mamba" in n or 'score' in n and p.requires_grad]},
+        ]
+        for n, p in net.named_parameters():
+            if "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n:
+                p.requires_grad = False
+    else:
+        param_dicts = [
+            {"params": [p for n, p in net.named_parameters()]},
+        ]
     # train_type = getattr(cfg.TRAIN.PROMPT, "TYPE", "")
     # if 'vipt' in train_type:
     #     # print("Only training prompt parameters. They are: ")
@@ -130,11 +142,6 @@ def get_optimizer_scheduler(net, cfg):
     #         for n, p in net.named_parameters():
     #             if p.requires_grad:
     #                 print(n)
-
-    param_dicts = [
-        {"params": [p for n, p in net.named_parameters()]},
-    ]
-
     if cfg.train.optimizer == "ADAMW":
         optimizer = torch.optim.AdamW(param_dicts, lr=cfg.train.lr, weight_decay=cfg.train.weight_decay)
     else:

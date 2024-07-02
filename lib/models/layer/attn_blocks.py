@@ -6,6 +6,17 @@ from timm.models.layers import Mlp, DropPath, trunc_normal_, lecun_normal_
 from lib.models.layer.attn import Attention
 
 
+def candidate_elimination_prompt(tokens: torch.Tensor, lens_t: int, global_index: torch.Tensor):
+    # tokens: actually prompt_parameters
+    tokens_t = tokens[:, :lens_t]
+    tokens_s = tokens[:, lens_t:]
+
+    B, L, C = tokens_s.shape
+    attentive_tokens = tokens_s.gather(dim=1, index=global_index.unsqueeze(-1).expand(B, -1, C))
+    tokens_new = torch.cat([tokens_t, attentive_tokens], dim=1)
+
+    return tokens_new
+
 def candidate_elimination_adapter(tokens: torch.Tensor, lens_t: int, global_index: torch.Tensor):
     # tokens: actually adapter_parameters
     tokens_t = tokens[:, :lens_t]
