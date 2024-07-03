@@ -9,6 +9,7 @@ import glob
 import torch
 from lib.config.cfg_loader import CfgLoader
 from lib.utils.multigpu import is_multi_gpu
+from torch.utils.data.distributed import DistributedSampler
 
 
 class BaseTrainer:
@@ -185,7 +186,7 @@ class BaseTrainer:
             if key in ignore_fields:
                 continue
             if key == 'net':
-                net.load_state_dict(checkpoint_dict[key])
+                net.load_state_dict(checkpoint_dict[key], strict=False)
             elif key == 'optimizer':
                 self.optimizer.load_state_dict(checkpoint_dict[key])
                 # self.optimizer.param_groups[0]['lr'] = self.cfg.train.lr
@@ -203,9 +204,54 @@ class BaseTrainer:
         if 'epoch' in fields:
             self.lr_scheduler.last_epoch = self.epoch
             # 2021.1.10 Update the epoch in data_samplers
-            # for loader in self.loaders:
-            #     loader.dataset.set_epoch(self.epoch)
+            for loader in self.loaders:
+                if isinstance(loader.sampler, DistributedSampler):
+                    loader.sampler.set_epoch(self.epoch)
         return True
+
+    # def load_state_dict(self, checkpoint=None, distill=False):
+    #     """Loads a network checkpoint file.
+    #
+    #     Can be called in three different ways:
+    #         load_checkpoint():
+    #             Loads the latest epoch from the workspace. Use this to continue training.
+    #         load_checkpoint(epoch_num):
+    #             Loads the network at the given epoch number (int).
+    #         load_checkpoint(path_to_checkpoint):
+    #             Loads the file from the given absolute path (str).
+    #     """
+    #     # if distill:
+    #     #     net = self.actor.net_teacher.module if is_multi_gpu(self.actor.net_teacher) else self.actor.net_teacher
+    #     # else:
+    #     net = self.actor.net.module if is_multi_gpu(self.actor.net) else self.actor.net
+    #
+    #     net_type = type(net).__name__
+    #
+    #     if isinstance(checkpoint, str):
+    #         # checkpoint is the path
+    #         if os.path.isdir(checkpoint):
+    #             checkpoint_list = sorted(glob.glob('{}/*_ep*.pth.tar'.format(checkpoint)))
+    #             if checkpoint_list:
+    #                 checkpoint_path = checkpoint_list[-1]
+    #             else:
+    #                 raise Exception('No checkpoint found')
+    #         else:
+    #             checkpoint_path = os.path.expanduser(checkpoint)
+    #     else:
+    #         raise TypeError
+    #
+    #     # Load network
+    #     print("Loading pretrained model from ", checkpoint_path)
+    #     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
+    #
+    #     assert net_type == checkpoint_dict['net_type'], 'Network is not of correct type.'
+    #
+    #     missing_k, unexpected_k = net.load_state_dict(checkpoint_dict["net"], strict=False)
+    #     print("previous checkpoint is loaded.")
+    #     print("missing keys: ", missing_k)
+    #     print("unexpected keys:", unexpected_k)
+    #
+    #     return True
 
     def train_epoch(self):
         raise NotImplementedError
