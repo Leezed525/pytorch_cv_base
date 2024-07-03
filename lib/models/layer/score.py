@@ -42,8 +42,6 @@ class PLScoreLayerUseConv(nn.Module):
         super().__init__()
         self.embed_dim = embed_dim
 
-        # self.norm1 = nn.LayerNorm(embed_dim)
-        # self.norm1 = nn.LayerNorm(embed_dim)
 
         self.conv1 = Conv(embed_dim, embed_dim // 2, 5, 1)
         self.conv2 = Conv(embed_dim // 2, 1, 3, 1)
@@ -59,8 +57,6 @@ class PLScoreLayerUseConv(nn.Module):
         x_rgb_clone = x_rgb.clone()
         x_modal_clone = x_modal.clone()
 
-        # x_rgb_clone = self.norm1(x_rgb_clone)
-        # x_modal_clone = self.norm1(x_modal_clone)
 
         # x shape: (B,C,H,W)
         positive_mask = self.sig(self.conv2(self.conv1(x_rgb_clone)))  # (B,1,H,W)
@@ -68,7 +64,6 @@ class PLScoreLayerUseConv(nn.Module):
 
         # 根据x_rgb 和 x_modal 来生成整体rgb图像的可信度，输出一个在0.5 - 0.9之间的值
         x_tmp = torch.cat((x_rgb_clone, x_modal_clone), dim=1)
-        # x_tmp = self.norm2(x_tmp)
         x_tmp = self.avg(x_tmp)
         x_tmp = self.sig(self.confident_conv2(self.confident_conv1(x_tmp)))
         value = x_tmp * 0.4 + 0.5

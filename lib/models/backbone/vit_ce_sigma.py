@@ -82,9 +82,15 @@ class VisionTransformerCE(VisionTransformer):
         H, W = search_size
         new_P_H, new_P_W = H // new_patch_size, W // new_patch_size
         self.num_patches_search = new_P_H * new_P_W
+
+        self.search_norm = norm_layer([new_P_H, new_P_W])
+
         H, W = template_size
         new_P_H, new_P_W = H // new_patch_size, W // new_patch_size
         self.num_patches_template = new_P_H * new_P_W
+
+        self.template_norm = norm_layer([new_P_H, new_P_W])
+
         """add here, no need use backbone.finetune_track """  #
         self.pos_embed_z = nn.Parameter(torch.zeros(1, self.num_patches_template, embed_dim))
         self.pos_embed_x = nn.Parameter(torch.zeros(1, self.num_patches_search, embed_dim))
@@ -151,8 +157,17 @@ class VisionTransformerCE(VisionTransformer):
         x_modal, _ = self.patch_embed(x_modal)
         z_modal, _ = self.patch_embed(z_modal)
 
+        # x = self.search_norm(x)
+        # z = self.template_norm(z)
+        #
+        # x_modal = self.search_norm(x_modal)
+        # z_modal = self.template_norm(z_modal)
+
         mx = self.score(x, x_modal)  # (B, 768,16,16)
         mz = self.score(z, z_modal)  # (B, 768,8,8)
+
+        mx = self.search_norm(mx)
+        mz = self.template_norm(mz)
 
         zw, zh = mz.shape[2], mz.shape[3]
         xw, xh = mx.shape[2], mx.shape[3]

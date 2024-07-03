@@ -106,7 +106,7 @@ def build_dataloaders(cfg: CfgLoader, world_size=1, local_rank=-1):
 
 
 def get_optimizer_scheduler(net, cfg):
-    if cfg.train.specifical_model_name == 'plScore_OS_sigma_CENTER':
+    if 'plScore_OS_sigma' in cfg.train.specifical_model_name:
         print("only train sigma and plscore parameters")
         param_dicts = [
             {"params": [p for n, p in net.named_parameters() if "cross_mamba" in n or "channel_attn_mamba" in n or 'score' in n and p.requires_grad]},
