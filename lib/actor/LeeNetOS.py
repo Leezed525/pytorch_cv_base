@@ -9,6 +9,7 @@ import torch
 from lib.utils.box_ops import box_cxcywh_to_xyxy, box_xywh_to_xyxy
 from lib.utils.heapmap_utils import generate_heatmap
 from lib.utils.ce_utils import generate_mask_cond, adjust_keep_rate
+from lib.utils import multigpu
 
 
 class LeeNetActor(BaseActor):
@@ -17,6 +18,15 @@ class LeeNetActor(BaseActor):
         self.loss_weight = loss_weight
         self.cfg = cfg
         self.batch_size = self.cfg.train.batch_size
+
+    def fix_bns(self):
+        net = self.net.module if multigpu.is_multi_gpu(self.net) else self.net
+        net.box_head.apply(self.fix_bn)
+
+    def fix_bn(self, m):
+        classname = m.__class__.__name__
+        if classname.find('BatchNorm') != -1:
+            m.eval()
 
     def __call__(self, data):
         """

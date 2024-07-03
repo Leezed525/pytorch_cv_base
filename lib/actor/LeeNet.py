@@ -8,6 +8,7 @@ from lib.actor.base_actor import BaseActor
 import torch
 from lib.utils.box_ops import box_cxcywh_to_xyxy, box_xywh_to_xyxy
 from lib.utils.heapmap_utils import generate_heatmap
+from lib.utils import multigpu
 
 
 class LeeNetActor(BaseActor):
@@ -22,6 +23,15 @@ class LeeNetActor(BaseActor):
             self.device = torch.device(self.device)
 
         self.net.to(self.device)
+
+    def fix_bns(self):
+        net = self.net.module if multigpu.is_multi_gpu(self.net) else self.net
+        net.box_head.apply(self.fix_bn)
+
+    def fix_bn(self, m):
+        classname = m.__class__.__name__
+        if classname.find('BatchNorm') != -1:
+            m.eval()
 
     def __call__(self, data):
         """
@@ -67,7 +77,8 @@ class LeeNetActor(BaseActor):
             raise ValueError("Network outputs is NAN! Stop Training")
         num_queries = pred_boxes.size(1)
         pred_boxes_vec = box_cxcywh_to_xyxy(pred_boxes).view(-1, 4)  # (B,N,4) --> (BN,4) (x1,y1,x2,y2)
-        gt_boxes_vec = box_xywh_to_xyxy(gt_bbox)[:, None, :].repeat((1, num_queries, 1)).view(-1, 4).clamp(min=0.0,max=1.0)  # (B,4) --> (B,1,4) --> (B,N,4)
+        gt_boxes_vec = box_xywh_to_xyxy(gt_bbox)[:, None, :].repeat((1, num_queries, 1)).view(-1, 4).clamp(min=0.0,
+                                                                                                           max=1.0)  # (B,4) --> (B,1,4) --> (B,N,4)
         # compute giou and iou
         try:
             giou_loss, iou = self.objective['giou'](pred_boxes_vec, gt_boxes_vec)  # (BN,4) (BN,4)

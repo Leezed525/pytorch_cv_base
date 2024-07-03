@@ -54,8 +54,10 @@ class LeeNetTrainer(BaseTrainer):
 
     def cycle_dataset(self, loader):
         self.actor.train(loader.training)
-
         torch.set_grad_enabled(loader.training)
+
+        if self.cfg.train.fix_bn:
+            self.actor.fix_bns()
 
         self._init_timing()
 
