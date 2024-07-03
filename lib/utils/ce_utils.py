@@ -13,13 +13,13 @@ def generate_bbox_mask(bbox_mask, bbox):
 
 
 def generate_mask_cond(cfg, bs, device, gt_bbox):
-    template_size = cfg.DATA.TEMPLATE.SIZE
-    stride = cfg.MODEL.BACKBONE.STRIDE
+    template_size = cfg.data.template.size
+    stride = cfg.model.backbone.stride
     template_feat_size = template_size // stride
 
-    if cfg.MODEL.BACKBONE.CE_TEMPLATE_RANGE == 'ALL':
+    if cfg.model.backbone.ce_template_range == 'ALL':
         box_mask_z = None
-    elif cfg.MODEL.BACKBONE.CE_TEMPLATE_RANGE == 'CTR_POINT':
+    elif cfg.model.backbone.ce_template_range == 'CTR_POINT':
         if template_feat_size == 8:
             index = slice(3, 4)
         elif template_feat_size == 12:
@@ -33,7 +33,7 @@ def generate_mask_cond(cfg, bs, device, gt_bbox):
         box_mask_z = torch.zeros([bs, template_feat_size, template_feat_size], device=device)
         box_mask_z[:, index, index] = 1
         box_mask_z = box_mask_z.flatten(1).to(torch.bool)
-    elif cfg.MODEL.BACKBONE.CE_TEMPLATE_RANGE == 'CTR_REC':
+    elif cfg.model.backbone.ce_template_range == 'CTR_REC':
         # use fixed 4x4 region, 3:5 for 8x8
         # use fixed 4x4 region 5:6 for 12x12
         if template_feat_size == 8:
@@ -48,7 +48,7 @@ def generate_mask_cond(cfg, bs, device, gt_bbox):
         box_mask_z[:, index, index] = 1
         box_mask_z = box_mask_z.flatten(1).to(torch.bool)
 
-    elif cfg.MODEL.BACKBONE.CE_TEMPLATE_RANGE == 'GT_BOX':
+    elif cfg.model.backbone.ce_template_range == 'GT_BOX':
         box_mask_z = torch.zeros([bs, template_size, template_size], device=device)
         # box_mask_z_ori = data['template_seg'][0].view(-1, 1, *data['template_seg'].shape[2:])  # (batch, 1, 128, 128)
         box_mask_z = generate_bbox_mask(box_mask_z, gt_bbox * template_size).unsqueeze(1).to(

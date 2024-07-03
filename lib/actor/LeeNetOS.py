@@ -51,7 +51,7 @@ class LeeNetActor(BaseActor):
             ce_keep_rate = adjust_keep_rate(data['epoch'], warmup_epochs=ce_start_epoch,
                                             total_epochs=ce_start_epoch + ce_warm_epoch,
                                             ITERS_PER_EPOCH=1,
-                                            base_keep_rate=self.cfg.MODEL.BACKBONE.CE_KEEP_RATIO[0])
+                                            base_keep_rate=self.cfg.model.backbone.ce_keep_ratio[0])
             # ce_keep_rate = 0.7
 
         if len(template_list) == 1:
