@@ -4,6 +4,7 @@ import sys
 from os.path import join, isdir, abspath, dirname
 import numpy as np
 import argparse
+
 prj = join(dirname(__file__), '..')
 if prj not in sys.path:
     sys.path.append(prj)
@@ -33,18 +34,18 @@ def genConfig(seq_path, set_type):
         RGB_gt = np.loadtxt(seq_path + '/groundTruth_v.txt', delimiter=' ')
         T_gt = np.loadtxt(seq_path + '/groundTruth_i.txt', delimiter=' ')
 
-        x_min = np.min(RGB_gt[:,[0,2]],axis=1)[:,None]
-        y_min = np.min(RGB_gt[:,[1,3]],axis=1)[:,None]
-        x_max = np.max(RGB_gt[:,[0,2]],axis=1)[:,None]
-        y_max = np.max(RGB_gt[:,[1,3]],axis=1)[:,None]
-        RGB_gt = np.concatenate((x_min, y_min, x_max-x_min, y_max-y_min),axis=1)
+        x_min = np.min(RGB_gt[:, [0, 2]], axis=1)[:, None]
+        y_min = np.min(RGB_gt[:, [1, 3]], axis=1)[:, None]
+        x_max = np.max(RGB_gt[:, [0, 2]], axis=1)[:, None]
+        y_max = np.max(RGB_gt[:, [1, 3]], axis=1)[:, None]
+        RGB_gt = np.concatenate((x_min, y_min, x_max - x_min, y_max - y_min), axis=1)
 
-        x_min = np.min(T_gt[:,[0,2]],axis=1)[:,None]
-        y_min = np.min(T_gt[:,[1,3]],axis=1)[:,None]
-        x_max = np.max(T_gt[:,[0,2]],axis=1)[:,None]
-        y_max = np.max(T_gt[:,[1,3]],axis=1)[:,None]
-        T_gt = np.concatenate((x_min, y_min, x_max-x_min, y_max-y_min),axis=1)
-    
+        x_min = np.min(T_gt[:, [0, 2]], axis=1)[:, None]
+        y_min = np.min(T_gt[:, [1, 3]], axis=1)[:, None]
+        x_max = np.max(T_gt[:, [0, 2]], axis=1)[:, None]
+        y_max = np.max(T_gt[:, [1, 3]], axis=1)[:, None]
+        T_gt = np.concatenate((x_min, y_min, x_max - x_min, y_max - y_min), axis=1)
+
     elif set_type == 'LasHeR':
         RGB_img_list = sorted([seq_path + '/visible/' + p for p in os.listdir(seq_path + '/visible') if p.endswith(".jpg")])
         T_img_list = sorted([seq_path + '/infrared/' + p for p in os.listdir(seq_path + '/infrared') if p.endswith(".jpg")])
@@ -69,7 +70,7 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
         seq_txt = seq_name
     # save_name = '{}_ep{}'.format(yaml_name, epoch)
     save_name = '{}'.format(yaml_name)
-    save_path = f'./RGBT_workspace/results/{dataset_name}/' + save_name +  '/' + seq_txt + '.txt'
+    save_path = f'./RGBT_workspace/results/{dataset_name}/' + save_name + '/' + seq_txt + '.txt'
     save_folder = f'./RGBT_workspace/results/{dataset_name}/' + save_name
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -86,11 +87,11 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
 
     if script_name == 'vipt':
         params = rgbt_prompt_params.parameters(yaml_name, epoch)
-        mmtrack = ViPTTrack(params)  # "GTOT" # dataset_name
-        tracker = ViPT_RGBT(tracker=mmtrack)
+        mmtrack = LeeNetTrack(params)  # "GTOT" # dataset_name
+        tracker = LeeNet_RGBT(tracker=mmtrack)
 
     seq_path = seq_home + '/' + seq_name
-    print('——————————Process sequence: '+seq_name +'——————————————')
+    print('——————————Process sequence: ' + seq_name + '——————————————')
     RGB_img_list, T_img_list, RGB_gt, T_gt = genConfig(seq_path, dataset_name)
     if len(RGB_img_list) == len(RGB_gt):
         result = np.zeros_like(RGB_gt)
@@ -102,11 +103,11 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
         tic = cv2.getTickCount()
         if frame_idx == 0:
             # initialization
-            image = get_x_frame(rgb_path, T_path, dtype=getattr(params.cfg.DATA,'XTYPE','rgbrgb'))
+            image = get_x_frame(rgb_path, T_path, dtype=getattr(params.cfg.data, 'XTYPE', 'rgbrgb'))
             tracker.initialize(image, RGB_gt[0].tolist())  # xywh
         elif frame_idx > 0:
             # track
-            image = get_x_frame(rgb_path, T_path, dtype=getattr(params.cfg.DATA,'XTYPE','rgbrgb'))
+            image = get_x_frame(rgb_path, T_path, dtype=getattr(params.cfg.data, 'XTYPE', 'rgbrgb'))
             region, confidence = tracker.track(image)  # xywh
             result[frame_idx] = np.array(region)
         toc += cv2.getTickCount() - tic
@@ -116,14 +117,14 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
     print('{} , fps:{}'.format(seq_name, frame_idx / toc))
 
 
-class ViPT_RGBT(object):
+class LeeNet_RGBT(object):
     def __init__(self, tracker):
         self.tracker = tracker
 
     def initialize(self, image, region):
         self.H, self.W, _ = image.shape
         gt_bbox_np = np.array(region).astype(np.float32)
-        
+
         init_info = {'init_bbox': list(gt_bbox_np)}  # input must be (x,y,w,h)
         self.tracker.initialize(image, init_info)
 
@@ -138,7 +139,8 @@ class ViPT_RGBT(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run tracker on RGBT dataset.')
     parser.add_argument('--script_name', type=str, default='prompt', help='Name of tracking method(ostrack, prompt, ftuning).')
-    parser.add_argument('--yaml_name', type=str, default='ostrack_ce_ep60_prompt_iv21b_wofovea_8_onlylasher_2xa100_rgbt', help='Name of tracking method.')  # vitb_256_mae_ce_32x4_ep300 vitb_256_mae_ce_32x4_ep60_prompt_i32v21_onlylasher_rgbt
+    parser.add_argument('--yaml_name', type=str, default='ostrack_ce_ep60_prompt_iv21b_wofovea_8_onlylasher_2xa100_rgbt',
+                        help='Name of tracking method.')  # vitb_256_mae_ce_32x4_ep300 vitb_256_mae_ce_32x4_ep60_prompt_i32v21_onlylasher_rgbt
     parser.add_argument('--dataset_name', type=str, default='LasHeR', help='Name of dataset (GTOT,RGBT234,LasHeR,VTUAVST,VTUAVLT).')
     parser.add_argument('--threads', default=4, type=int, help='Number of threads')
     parser.add_argument('--num_gpus', default=torch.cuda.device_count(), type=int, help='Number of gpus')
@@ -152,26 +154,26 @@ if __name__ == '__main__':
     dataset_name = args.dataset_name
     # path initialization
     seq_list = None
-    if dataset_name == 'GTOT':
-        seq_home = '/home/lz/Videos/GTOT'
-        seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home,f))]
+    if dataset_name == 'LasHeR':
+        seq_home = '/media/star/data/Leezed/dataset/LasHeR/TestingSet/testingset/'
+        seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
         seq_list.sort()
-    elif dataset_name == 'RGBT234':
-        seq_home = '/media/jiawen/Datasets/Tracking/DATASET_TEST/RGBT234'
-        seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home,f))]
-        seq_list.sort()
-    elif dataset_name == 'LasHeR':
-        seq_home = '/media/jiawen/Datasets/Tracking/DATASET/LasHeR/testingset'
-        seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home,f))]
-        seq_list.sort()
-    elif dataset_name == 'VTUAVST':
-        seq_home = '/mnt/6196b16a-836e-45a4-b6f2-641dca0991d0/VTUAV/test/short-term'
-        with open(join(join(seq_home, 'VTUAV-ST.txt')), 'r') as f:
-            seq_list = f.read().splitlines()
-    elif dataset_name == 'VTUAVLT':
-        seq_home = '/mnt/6196b16a-836e-45a4-b6f2-641dca0991d0/VTUAV/test/long-term'
-        with open(join(seq_home, 'VTUAV-LT.txt'), 'r') as f:
-            seq_list = f.read().splitlines()
+    # elif dataset_name == 'RGBT234':
+    #     seq_home = '/media/jiawen/Datasets/Tracking/DATASET_TEST/RGBT234'
+    #     seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
+    #     seq_list.sort()
+    # elif dataset_name == 'GTOT':
+    #     seq_home = '/home/lz/Videos/GTOT'
+    #     seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
+    #     seq_list.sort()
+    # elif dataset_name == 'VTUAVST':
+    #     seq_home = '/mnt/6196b16a-836e-45a4-b6f2-641dca0991d0/VTUAV/test/short-term'
+    #     with open(join(join(seq_home, 'VTUAV-ST.txt')), 'r') as f:
+    #         seq_list = f.read().splitlines()
+    # elif dataset_name == 'VTUAVLT':
+    #     seq_home = '/mnt/6196b16a-836e-45a4-b6f2-641dca0991d0/VTUAV/test/long-term'
+    #     with open(join(seq_home, 'VTUAV-LT.txt'), 'r') as f:
+    #         seq_list = f.read().splitlines()
     else:
         raise ValueError("Error dataset!")
 
@@ -186,4 +188,4 @@ if __name__ == '__main__':
         sequence_list = [(s, seq_home, dataset_name, args.yaml_name, args.num_gpus, args.epoch, args.debug, args.script_name) for s in seq_list]
         for seqlist in sequence_list:
             run_sequence(*seqlist)
-    print(f"Totally cost {time.time()-start} seconds!")
+    print(f"Totally cost {time.time() - start} seconds!")

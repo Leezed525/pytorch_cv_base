@@ -24,7 +24,7 @@ class LeeNetTrack(BaseTracker):
         self.preprocessor = PreprocessorMM()
         self.state = None
 
-        self.feat_sz = self.cfg.TEST.SEARCH_SIZE // self.cfg.MODEL.BACKBONE.STRIDE
+        self.feat_sz = self.cfg.test.search.size // self.cfg.model.backbone.stride
         # motion constrain
         self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).cuda()
 
@@ -47,7 +47,7 @@ class LeeNetTrack(BaseTracker):
             self.z_tensor = template
 
         self.box_mask_z = None
-        if self.cfg.MODEL.BACKBONE.CE_LOC:
+        if self.cfg.model.backbone.ce_loc:
             template_bbox = self.transform_bbox_to_crop(info['init_bbox'], resize_factor,
                                                         template.device).squeeze(1)
             self.box_mask_z = generate_mask_cond(self.cfg, 1, template.device, template_bbox)

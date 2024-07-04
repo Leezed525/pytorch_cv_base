@@ -30,7 +30,7 @@ class CfgLoader(dict):
 
 
 def get_cfg(path, cfg_name):
-    return YamlUtil(path, cfg_name).content
+    return YamlUtil(path, cfg_name if cfg_name.endswith(".yaml") else cfg_name + ".yaml").content
 
 
 def env_setting(cfg_name):
