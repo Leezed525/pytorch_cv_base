@@ -113,7 +113,7 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
         toc += cv2.getTickCount() - tic
     toc /= cv2.getTickFrequency()
     if not debug:
-        np.savetxt(save_path, fmt='%d')
+        np.savetxt(save_path,result, fmt='%d')
     print('{} , fps:{}'.format(seq_name, frame_idx / toc))
 
 
