@@ -8,7 +8,8 @@ def load_text_numpy(path, delimiter, dtype):
             try:
                 ground_truth_rect = np.loadtxt(path, delimiter=d, dtype=dtype)
                 return ground_truth_rect
-            except:
+            except Exception as e:
+                # print(e)
                 pass
 
         raise Exception('Could not read file {}'.format(path))

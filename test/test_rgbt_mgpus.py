@@ -109,11 +109,11 @@ def run_sequence(seq_name, seq_home, dataset_name, yaml_name, num_gpu=1, epoch=3
             # track
             image = get_x_frame(rgb_path, T_path, dtype=getattr(params.cfg.data, 'XTYPE', 'rgbrgb'))
             region, confidence = tracker.track(image)  # xywh
-            result[frame_idx] = np.array(region)
+            result[frame_idx] = np.array(region, dtype=np.int32)
         toc += cv2.getTickCount() - tic
     toc /= cv2.getTickFrequency()
     if not debug:
-        np.savetxt(save_path, result)
+        np.savetxt(save_path, fmt='%d')
     print('{} , fps:{}'.format(seq_name, frame_idx / toc))
 
 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     # path initialization
     seq_list = None
     if dataset_name == 'LasHeR':
-        seq_home = '/media/star/data/Leezed/dataset/LasHeR/TestingSet/testingset/'
+        seq_home = '/media/star/data/Leezed/dataset/LasHeR/testingset/'
         seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
         seq_list.sort()
     # elif dataset_name == 'RGBT234':
