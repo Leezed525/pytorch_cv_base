@@ -17,6 +17,7 @@ def candidate_elimination_prompt(tokens: torch.Tensor, lens_t: int, global_index
 
     return tokens_new
 
+
 def candidate_elimination_adapter(tokens: torch.Tensor, lens_t: int, global_index: torch.Tensor):
     # tokens: actually adapter_parameters
     tokens_t = tokens[:, :lens_t]
@@ -29,7 +30,8 @@ def candidate_elimination_adapter(tokens: torch.Tensor, lens_t: int, global_inde
     return tokens_new
 
 
-def candidate_elimination(attn: torch.Tensor, tokens: torch.Tensor, lens_t: int, keep_ratio: float, global_index: torch.Tensor, box_mask_z: torch.Tensor):
+def candidate_elimination(attn: torch.Tensor, tokens: torch.Tensor, lens_t: int, keep_ratio: float, global_index: torch.Tensor,
+                          box_mask_z: torch.Tensor):
     """
     Eliminate potential background candidates for computation reduction and noise cancellation.
     Args:
@@ -89,7 +91,7 @@ def candidate_elimination(attn: torch.Tensor, tokens: torch.Tensor, lens_t: int,
 class CEBlock(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, keep_ratio_search=1.0,):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, keep_ratio_search=1.0, ):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
@@ -109,7 +111,8 @@ class CEBlock(nn.Module):
         removed_index_search = None
         if self.keep_ratio_search < 1 and (keep_ratio_search is None or keep_ratio_search < 1):
             keep_ratio_search = self.keep_ratio_search if keep_ratio_search is None else keep_ratio_search
-            x, global_index_search, removed_index_search = candidate_elimination(attn, x, lens_t, keep_ratio_search, global_index_search, ce_template_mask)
+            x, global_index_search, removed_index_search = candidate_elimination(attn, x, lens_t, keep_ratio_search, global_index_search,
+                                                                                 ce_template_mask)
 
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x, global_index_template, global_index_search, removed_index_search, attn

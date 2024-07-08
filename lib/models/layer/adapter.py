@@ -3,7 +3,6 @@ from torch import nn
 import timm
 import math
 
-
 '''
 def forward_block(self, x):
     x = x + self.drop_path(self.attn(self.norm1(x))) + self.drop_path(self.adapter_attn(self.norm1(x))) * self.s
@@ -23,16 +22,33 @@ class QuickGELU(nn.Module):
         return x * torch.sigmoid(1.702 * x)
 
 
+class Fusion_adapter(nn.Module):
+    def __init__(self, dim=16):
+        super().__init__()
+        self.adapter_down = nn.Linear(768 * 2, dim)
+        self.adapter_up = nn.Linear(dim, 768)
+        self.adapter_mid = nn.Linear(dim, dim)
+
+        self.dropout = nn.Dropout(0.1)
+
+    def forward(self, x, x_modal):
+        x_mix = torch.cat([x, x_modal], dim=2)
+        x_down = self.adapter_down(x_mix)
+        x_down = self.adapter_mid(x_down)
+        x_down = self.dropout(x_down)
+        x_up = self.adapter_up(x_down)
+        return x + x_up, x_modal + x_up
+
 
 class Bi_direct_adapter(nn.Module):
     def __init__(self, dim=8, xavier_init=False):
         super().__init__()
 
-        self.adapter_down = nn.Linear(768, dim)  
-        self.adapter_up = nn.Linear(dim, 768)  
+        self.adapter_down = nn.Linear(768, dim)
+        self.adapter_up = nn.Linear(dim, 768)
         self.adapter_mid = nn.Linear(dim, dim)
 
-        #nn.init.xavier_uniform_(self.adapter_down.weight)
+        # nn.init.xavier_uniform_(self.adapter_down.weight)
         nn.init.zeros_(self.adapter_mid.bias)
         nn.init.zeros_(self.adapter_mid.weight)
         nn.init.zeros_(self.adapter_down.weight)
@@ -40,20 +56,21 @@ class Bi_direct_adapter(nn.Module):
         nn.init.zeros_(self.adapter_up.weight)
         nn.init.zeros_(self.adapter_up.bias)
 
-        #self.act = QuickGELU()
+        # self.act = QuickGELU()
         self.dropout = nn.Dropout(0.1)
         self.dim = dim
 
     def forward(self, x):
         B, N, C = x.shape
-        x_down = self.adapter_down(x)   
-        #x_down = self.act(x_down)
+        x_down = self.adapter_down(x)
+        # x_down = self.act(x_down)
         x_down = self.adapter_mid(x_down)
-        #x_down = self.act(x_down)
+        # x_down = self.act(x_down)
         x_down = self.dropout(x_down)
-        x_up = self.adapter_up(x_down)  
-        #print("return adap x", x_up.size())
+        x_up = self.adapter_up(x_down)
+        # print("return adap x", x_up.size())
         return x_up
+
 
 """
 

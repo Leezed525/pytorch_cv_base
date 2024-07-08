@@ -16,6 +16,7 @@ from .vit import VisionTransformer
 from ..layer.attn_blocks import CEBlock
 from lib.models.layer.vmamba import CrossMambaFusionBlock, ConcatMambaFusionBlock
 from lib.models.layer.score import PLScoreLayerUseConv
+from lib.models.layer.adapter import Fusion_adapter
 
 _logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ class VisionTransformerCE(VisionTransformer):
                 d_state=4,
             ) for i in range(4)
         )
+        self.adapter = Fusion_adapter()
 
         self.norm = norm_layer(embed_dim)
 
@@ -256,7 +258,6 @@ class VisionTransformerCE(VisionTransformer):
 
         removed_indexes_s = []
         removed_indexes_s_modal = []
-        removed_indexes_ms = []
 
         for i, blk in enumerate(self.blocks):  # -> (B,320,768)
             x, global_index_t, global_index_s, removed_index_s, attn = blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate)
@@ -264,8 +265,9 @@ class VisionTransformerCE(VisionTransformer):
             x_modal, global_index_t_modal, global_index_s_modal, removed_index_s_modal, attn_modal = blk(x_modal, global_index_t_modal,
                                                                                                          global_index_s_modal, mask_x,
                                                                                                          ce_template_mask, ce_keep_rate)
-            mx, global_index_mt, global_index_ms, removed_index_ms, attn = blk(mx, global_index_mt, global_index_ms, mask_x, ce_template_mask,
-                                                                               ce_keep_rate)
+
+            # 使用adapter交互数据
+            x, x_modal = self.adapter(x, x_modal)
 
             if i % 4 == 3:
                 # sigma fusion
@@ -285,10 +287,12 @@ class VisionTransformerCE(VisionTransformer):
                 x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
                 mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
 
+                # 加个norm防止过拟合
+                x_modal = self.norm(x_modal)
+
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)
                 removed_indexes_s_modal.append(removed_index_s_modal)
-                removed_indexes_ms.append(removed_index_ms)
 
         x = self.norm(x)
         x_modal = self.norm(x_modal)
@@ -331,18 +335,6 @@ class VisionTransformerCE(VisionTransformer):
             C = x_modal.shape[-1]
             # x = x.gather(1, index_all.unsqueeze(-1).expand(B, -1, C).argsort(1))
             x_modal = torch.zeros_like(x_modal).scatter_(dim=1, index=index_all.unsqueeze(-1).expand(B, -1, C).to(torch.int64), src=x_modal)
-
-        if removed_indexes_ms and removed_indexes_ms[0] is not None:
-            removed_indexes_cat_m = torch.cat(removed_indexes_ms, dim=1)
-
-            pruned_lens_mx = lens_x - lens_mx_new
-            pad_mx = torch.zeros([B, pruned_lens_mx, mx.shape[2]], device=x.device)
-            mx = torch.cat([mx, pad_mx], dim=1)
-            index_all = torch.cat([global_index_ms, removed_indexes_cat_m], dim=1)
-            # recover original token order
-            C = mx.shape[-1]
-            # x = x.gather(1, index_all.unsqueeze(-1).expand(B, -1, C).argsort(1))
-            mx = torch.zeros_like(mx).scatter_(dim=1, index=index_all.unsqueeze(-1).expand(B, -1, C).to(torch.int64), src=mx)
 
         x = recover_tokens(x, lens_z_new, lens_x, mode=self.cat_mode)  # -> (B, 256, 768)
         x_modal = recover_tokens(x_modal, lens_z_modal_new, lens_x, mode=self.cat_mode)

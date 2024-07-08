@@ -30,8 +30,10 @@ def generate_mask_cond(cfg, bs, device, gt_bbox):
             index = slice(6, 7)
         else:
             raise NotImplementedError
-        box_mask_z = torch.zeros([bs, template_feat_size, template_feat_size], device=device)
-        box_mask_z[:, index, index] = 1
+        # 在 generate_mask_cond 函数中
+        box_mask_z = torch.zeros([bs, 1, template_feat_size, template_feat_size], device=device)
+        box_mask_z[:, 0, index, index] = 1  # 只设置中心点为 1
+        # 其余代码保持不变
         box_mask_z = box_mask_z.flatten(1).to(torch.bool)
     elif cfg.model.backbone.ce_template_range == 'CTR_REC':
         # use fixed 4x4 region, 3:5 for 8x8
