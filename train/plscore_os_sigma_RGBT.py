@@ -66,7 +66,7 @@ def run():
     # state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
     # model_dict.update(state_dict)
     # net.load_state_dict(model_dict, strict=False)
-
+    #
     # print("导入vipt 预训练权重成功")
 
     # 导入预训练权重结束

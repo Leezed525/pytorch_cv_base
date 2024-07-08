@@ -107,13 +107,21 @@ def build_dataloaders(cfg: CfgLoader, world_size=1, local_rank=-1):
 
 def get_optimizer_scheduler(net, cfg):
     if 'plScore_OS_sigma' in cfg.train.specifical_model_name:
-        print("only train sigma and plscore parameters")
+        # print("only train sigma and plscore parameters")
         param_dicts = [
-            {"params": [p for n, p in net.named_parameters() if "cross_mamba" in n or "channel_attn_mamba" in n or 'score' in n and p.requires_grad]},
+            {"params": [p for n, p in net.named_parameters() if
+                        ("cross_mamba" in n or "channel_attn_mamba" in n or 'score' in n or "adapter" in n) and p.requires_grad]},
+            {
+                "params": [p for n, p in net.named_parameters() if
+                           "backbone" in n and "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n and p.requires_grad],
+                "lr": cfg.train.lr * cfg.train.backbone_multiplier,
+            }
         ]
-        for n, p in net.named_parameters():
-            if "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n:
-                p.requires_grad = False
+        # for n, p in net.named_parameters():
+        #     if "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n:
+        #         p.requires_grad = False
+        #     else:
+        #         print(n)
     else:
         param_dicts = [
             {"params": [p for n, p in net.named_parameters()]},

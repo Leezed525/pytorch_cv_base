@@ -265,8 +265,7 @@ class VisionTransformerCE(VisionTransformer):
             x_modal, global_index_t_modal, global_index_s_modal, removed_index_s_modal, attn_modal = blk(x_modal, global_index_t_modal,
                                                                                                          global_index_s_modal, mask_x,
                                                                                                          ce_template_mask, ce_keep_rate)
-
-            # 使用adapter交互数据
+            # 使用adapter融合数据
             x, x_modal = self.adapter(x, x_modal)
 
             if i % 4 == 3:

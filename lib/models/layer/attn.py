@@ -9,7 +9,7 @@ from lib.models.layer.rpe import generate_2d_concatenated_self_attention_relativ
 class Attention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.,
                  rpe=False, z_size=7, x_size=14):
-                 
+
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
@@ -20,7 +20,7 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-        self.rpe =rpe
+        self.rpe = rpe
         if self.rpe:
             relative_position_index = \
                 generate_2d_concatenated_self_attention_relative_positional_encoding_index([z_size, z_size],
@@ -31,12 +31,15 @@ class Attention(nn.Module):
                                                                           relative_position_index.max() + 1)))
             trunc_normal_(self.relative_position_bias_table, std=0.02)
 
+        ### drop key map ratio
+        self.drop_key_ratio = 0.1
+
     def forward(self, x, mask=None, return_attention=False):
         # x: B, N, C
         # mask: [B, N, ] torch.bool
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv.unbind(0)   # make torchscript happy (cannot use tensor as tuple)
+        q, k, v = qkv.unbind(0)  # make torchscript happy (cannot use tensor as tuple)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
 
@@ -45,7 +48,12 @@ class Attention(nn.Module):
             attn += relative_position_bias
 
         if mask is not None:
-            attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2), float('-inf'),)
+            attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2), float('-inf'), )
+
+        # drop key
+        if self.training:
+            m_r = torch.ones_like(attn) * self.drop_key_ratio
+            attn = attn + torch.bernoulli(m_r) * -1e12
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -107,7 +115,7 @@ class Attention_talking_head(nn.Module):
 
         if mask is not None:
             attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2),
-                                    float('-inf'),)
+                                    float('-inf'), )
 
         attn = self.proj_l(attn.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
@@ -122,11 +130,6 @@ class Attention_talking_head(nn.Module):
         return x
 
 
-
-
-
-
-
 class Cross_Attention(nn.Module):
     def __init__(self, dim, mode, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.,
                  rpe=False, z_size=7, x_size=14):
@@ -139,7 +142,7 @@ class Cross_Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
         self.mode = mode
-        self.rpe =rpe
+        self.rpe = rpe
         if self.rpe:
             relative_position_index = \
                 generate_2d_concatenated_self_attention_relative_positional_encoding_index([z_size, z_size],
@@ -154,7 +157,7 @@ class Cross_Attention(nn.Module):
         # x: B, N, C
         # mask: [B, N, ] torch.bool
         B, N, C = dom.shape
-        
+
         lens_z = 64  # Number of template tokens
         lens_x = 256  # Number of search region tokens
         """
@@ -179,13 +182,13 @@ class Cross_Attention(nn.Module):
         v = ref
 
         attn = (q @ k.transpose(-2, -1)) * self.scale  # B, lens_z, lens_x; B, lens_x, lens_z
-       
+
         if self.rpe:
             relative_position_bias = self.relative_position_bias_table[:, self.relative_position_index].unsqueeze(0)
             attn += relative_position_bias
 
         if mask is not None:
-            attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2), float('-inf'),)
+            attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2), float('-inf'), )
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
