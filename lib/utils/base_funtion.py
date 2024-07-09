@@ -113,15 +113,17 @@ def get_optimizer_scheduler(net, cfg):
                         ("cross_mamba" in n or "channel_attn_mamba" in n or 'score' in n or "adapter" in n) and p.requires_grad]},
             {
                 "params": [p for n, p in net.named_parameters() if
-                           "backbone" in n and "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n and p.requires_grad],
+                           "backbone" in n and "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n and "adapter" not in n and p.requires_grad],
                 "lr": cfg.train.lr * cfg.train.backbone_multiplier,
             }
         ]
-        # for n, p in net.named_parameters():
-        #     if "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n:
-        #         p.requires_grad = False
-        #     else:
-        #         print(n)
+        for n, p in net.named_parameters():
+            # if "cross_mamba" not in n and "channel_attn_mamba" not in n and 'score' not in n:
+            #     p.requires_grad = False
+            if "box_head" in n:
+                p.requires_grad = False
+            else:
+                print(n)
     else:
         param_dicts = [
             {"params": [p for n, p in net.named_parameters()]},

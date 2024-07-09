@@ -72,22 +72,22 @@ class ScoreOSCENTER(nn.Module):
 
 
 def build_score_os_sigma_center(cfg, training=True):
-    # backbone = vit_base_patch16_224_ce(pretrained=False,
-    #                                    drop_path_rate=cfg.train.drop_path_rate,
-    #                                    ce_loc=cfg.model.backbone.ce_loc,
-    #                                    ce_keep_ratio=cfg.model.backbone.ce_keep_ratio,
-    #                                    search_size=to_2tuple(cfg.data.search.size),
-    #                                    template_size=to_2tuple(cfg.data.template.size),
-    #                                    new_patch_size=cfg.model.backbone.stride)
-    from lib.models.backbone.vit_ce_prompt import vit_base_patch16_224_ce_prompt
-    backbone = vit_base_patch16_224_ce_prompt(pretrained=False, drop_path_rate=cfg.train.drop_path_rate,
-                                              ce_loc=cfg.model.backbone.ce_loc,
-                                              ce_keep_ratio=cfg.model.backbone.ce_keep_ratio,
-                                              search_size=to_2tuple(cfg.data.search.size),
-                                              template_size=to_2tuple(cfg.data.template.size),
-                                              new_patch_size=cfg.model.backbone.stride,
-                                              prompt_type="vipt_deep"
-                                              )
+    backbone = vit_base_patch16_224_ce(pretrained=False,
+                                       drop_path_rate=cfg.train.drop_path_rate,
+                                       ce_loc=cfg.model.backbone.ce_loc,
+                                       ce_keep_ratio=cfg.model.backbone.ce_keep_ratio,
+                                       search_size=to_2tuple(cfg.data.search.size),
+                                       template_size=to_2tuple(cfg.data.template.size),
+                                       new_patch_size=cfg.model.backbone.stride)
+    # from lib.models.backbone.vit_ce_prompt import vit_base_patch16_224_ce_prompt
+    # backbone = vit_base_patch16_224_ce_prompt(pretrained=False, drop_path_rate=cfg.train.drop_path_rate,
+    #                                           ce_loc=cfg.model.backbone.ce_loc,
+    #                                           ce_keep_ratio=cfg.model.backbone.ce_keep_ratio,
+    #                                           search_size=to_2tuple(cfg.data.search.size),
+    #                                           template_size=to_2tuple(cfg.data.template.size),
+    #                                           new_patch_size=cfg.model.backbone.stride,
+    #                                           prompt_type="vipt_deep"
+    #                                           )
     hidden_dim = backbone.embed_dim
 
     box_head = build_box_head(cfg, hidden_dim)
