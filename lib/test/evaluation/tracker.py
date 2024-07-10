@@ -54,7 +54,7 @@ class Tracker:
             self.results_dir = '{}/{}/{}_{:03d}'.format(cfg.analysis.results_path, self.name, self.parameter_name, self.run_id)
         if result_only:
             self.results_dir = '{}/{}'.format(cfg.analysis.results_path, self.name)
-        print(self.results_dir)
+        # print(self.results_dir)
 
         tracker_module_abspath = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                               '..', 'tracker', '%s.py' % self.name))
