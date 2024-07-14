@@ -80,7 +80,7 @@ def build_dataloaders(cfg: CfgLoader, world_size=1, local_rank=-1):
                                     stack_dim=1,
                                     sampler=train_sampler)
 
-    if cfg.data.val.datasets_name[0] is None:
+    if len(cfg.data.val.datasets_name) == 0:
         loader_val = None
     else:
         dataset_val = sampler.TrackingSampler(datasets=names_to_datasets(cfg.data.val.datasets_name, cfg, image_loader.opencv_loader),

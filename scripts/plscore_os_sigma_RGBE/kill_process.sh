@@ -3,7 +3,7 @@
 cd /home/lzd/workspace/LeeNet
 
 # 从 pid.txt 文件中读取进程 ID（PID）
-pid=$(cat ./scripts/plscore_pureRMT_mlp_00001/pid.txt)
+pid=$(cat ./scripts/plscore_os_sigma_RGBE/pid.txt)
 
 # 检查进程是否存在
 if ps -p $pid > /dev/null; then

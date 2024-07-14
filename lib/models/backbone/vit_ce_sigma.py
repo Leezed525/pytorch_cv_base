@@ -132,7 +132,7 @@ class VisionTransformerCE(VisionTransformer):
                 d_state=4,
             ) for i in range(4)
         )
-        self.adapter = Fusion_adapter()
+        # self.adapter = Fusion_adapter()
 
         self.norm = norm_layer(embed_dim)
 
@@ -266,7 +266,7 @@ class VisionTransformerCE(VisionTransformer):
                                                                                                          global_index_s_modal, mask_x,
                                                                                                          ce_template_mask, ce_keep_rate)
             # 使用adapter融合数据
-            x, x_modal = self.adapter(x, x_modal)
+            # x, x_modal = self.adapter(x, x_modal)
 
             if i % 4 == 3:
                 # sigma fusion
@@ -288,14 +288,15 @@ class VisionTransformerCE(VisionTransformer):
 
                 # 加个norm防止过拟合
                 x_modal = self.norm(x_modal)
+                mx = self.norm(mx)
 
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)
                 removed_indexes_s_modal.append(removed_index_s_modal)
 
         x = self.norm(x)
-        x_modal = self.norm(x_modal)
-        mx = self.norm(mx)
+        # x_modal = self.norm(x_modal)
+        # mx = self.norm(mx)
 
         lens_x_new = global_index_s.shape[1]
         lens_z_new = global_index_t.shape[1]
