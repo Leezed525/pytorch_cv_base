@@ -28,6 +28,7 @@ dataset_dict = dict(
     vtuav_st=DatasetInfo(module=pt % "vtuav", class_name="VTUAVDataset", kwargs=dict(subset='st')),
     vtuav_lt=DatasetInfo(module=pt % "vtuav", class_name="VTUAVDataset", kwargs=dict(subset='lt')),
     lasher=DatasetInfo(module=pt % "lasher", class_name="LasHeRDataset", kwargs=dict(split='testingset')),
+    visevent=DatasetInfo(module=pt % "visevent", class_name="VisEventDataset", kwargs=dict(split='test')),
 )
 
 

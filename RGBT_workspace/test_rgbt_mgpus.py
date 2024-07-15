@@ -158,10 +158,10 @@ if __name__ == '__main__':
         seq_home = '/media/star/data/Leezed/dataset/LasHeR/testingset/'
         seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
         seq_list.sort()
-    # elif dataset_name == 'RGBT234':
-    #     seq_home = '/media/jiawen/Datasets/Tracking/DATASET_TEST/RGBT234'
-    #     seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
-    #     seq_list.sort()
+    elif dataset_name == 'RGBT234':
+        seq_home = '/media/star/data/Leezed/dataset/RGB-T234'
+        seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]
+        seq_list.sort()
     # elif dataset_name == 'GTOT':
     #     seq_home = '/home/lz/Videos/GTOT'
     #     seq_list = [f for f in os.listdir(seq_home) if isdir(join(seq_home, f))]

@@ -18,6 +18,7 @@ class LeeNetTrack(BaseTracker):
         super(LeeNetTrack, self).__init__(params)
         network = build_score_os_sigma_center(params.cfg, training=False)
         network.load_state_dict(torch.load(self.params.checkpoint, map_location='cpu')['net'], strict=True)
+        # print("当前使用的chekcpoint: ", self.params.checkpoint)
         self.cfg = params.cfg
         self.network = network.cuda()
         self.network.eval()
