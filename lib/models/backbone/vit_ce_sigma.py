@@ -132,6 +132,11 @@ class VisionTransformerCE(VisionTransformer):
                 d_state=4,
             ) for i in range(4)
         )
+
+        self.score_in_layer = nn.ModuleList(
+            PLScoreLayerUseConv(embed_dim=self.embed_dim) for i in range(4)
+        )
+
         # self.adapter = Fusion_adapter()
 
         self.norm = norm_layer(embed_dim)
@@ -274,6 +279,15 @@ class VisionTransformerCE(VisionTransformer):
                 x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
                 mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
 
+                # score in layer start
+                score_x = self.score_in_layer[i // 4](x.permute(0, 3, 1, 2), x_modal.permute(0, 3, 1, 2))
+                score_z = self.score_in_layer[i // 4](z.permute(0, 3, 1, 2), z_modal.permute(0, 3, 1, 2))
+
+                mx += score_x.permute(0, 2, 3, 1)
+                mz += score_z.permute(0, 2, 3, 1)
+
+                # score in layer end
+
                 x_f, x_f_modal = self.cross_mamba[i // 4](x, x_modal)
                 x_fuse = self.channel_attn_mamba[i // 4](x_f, x_f_modal)
                 mx += x_fuse
@@ -288,15 +302,15 @@ class VisionTransformerCE(VisionTransformer):
 
                 # 加个norm防止过拟合
                 x_modal = self.norm(x_modal)
-                mx = self.norm(mx)
+                # mx = self.norm(mx)
 
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)
                 removed_indexes_s_modal.append(removed_index_s_modal)
 
         x = self.norm(x)
-        # x_modal = self.norm(x_modal)
-        # mx = self.norm(mx)
+        x_modal = self.norm(x_modal)
+        mx = self.norm(mx)
 
         lens_x_new = global_index_s.shape[1]
         lens_z_new = global_index_t.shape[1]

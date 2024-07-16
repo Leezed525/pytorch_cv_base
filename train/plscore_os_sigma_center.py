@@ -24,8 +24,10 @@ import torch.distributed as dist
 
 
 def run():
+    cfg_name = "plscore_os_sigma_center.yaml"
+    print("当前训练配置文件为：" + cfg_name)
     dist.init_process_group(backend='nccl')
-    cfg = env_setting(cfg_name="plscore_os_sigma_center.yaml")
+    cfg = env_setting(cfg_name=cfg_name)
     local_rank = int(os.environ.get('LOCAL_RANK', -1))
     world_size = int(os.environ.get('WORLD_SIZE', 1))
 
@@ -45,16 +47,16 @@ def run():
     net = build_score_os_sigma_center(cfg)
 
     # 导入预训练权重
-    # # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/OSTrack_ep0300.pth.tar"
+    pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/OSTrack_ep0300.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0080.pth.tar"
-    # # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/BAT_rgbt.pth"
-    # checkpoint = torch.load(pretrained)['net']
-    #
-    # model_dict = net.state_dict()
-    # state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
-    # model_dict.update(state_dict)
-    # net.load_state_dict(model_dict, strict=False)
-    # print("导入OSTrack 预训练权重成功")
+    # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/BAT_rgbt.pth"
+    checkpoint = torch.load(pretrained)['net']
+
+    model_dict = net.state_dict()
+    state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
+    model_dict.update(state_dict)
+    net.load_state_dict(model_dict, strict=False)
+    print("导入预训练权重成功")
 
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/ViPT_deep_rgbt.pth"
     #

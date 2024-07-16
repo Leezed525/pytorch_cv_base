@@ -19,7 +19,7 @@ from lib.dataset.depth_utils import get_x_frame
 class VisEvent(BaseVideoDataset):
     def __init__(self, root=None, dtype='rgbrgb', split='train', image_loader=jpeg4py_loader_w_failsafe, cfg_name=None):
         root = env_setting(cfg_name).dataset.VisEvent[split]['dir'] if root is None else root
-        assert split in ['train'], 'Only support train split in VisEvent, got {}'.format(split)
+        assert split in ['train','val'], 'Only support train and val split in VisEvent, got {}'.format(split)
         super().__init__('VisEvent', root, image_loader)
 
         self.dtype = dtype
