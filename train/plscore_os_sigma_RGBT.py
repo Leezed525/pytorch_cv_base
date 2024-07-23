@@ -46,7 +46,7 @@ def run():
 
     # 导入预训练权重
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/OSTrack_ep0300.pth.tar"
-    pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0030.pth.tar"
+    pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0012.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0080.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/BAT_rgbt.pth"
     checkpoint = torch.load(pretrained)['net']

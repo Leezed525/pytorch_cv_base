@@ -263,6 +263,7 @@ class VisionTransformerCE(VisionTransformer):
 
         removed_indexes_s = []
         removed_indexes_s_modal = []
+        removed_indexes_ms = []
 
         for i, blk in enumerate(self.blocks):  # -> (B,320,768)
             x, global_index_t, global_index_s, removed_index_s, attn = blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate)
@@ -270,6 +271,9 @@ class VisionTransformerCE(VisionTransformer):
             x_modal, global_index_t_modal, global_index_s_modal, removed_index_s_modal, attn_modal = blk(x_modal, global_index_t_modal,
                                                                                                          global_index_s_modal, mask_x,
                                                                                                          ce_template_mask, ce_keep_rate)
+
+            # mx,global_index_mt,global_index_ms,removed_index_ms,attn_ms = blk(mx,global_index_mt,global_index_ms,mask_x,ce_template_mask,ce_keep_rate)
+
             # 使用adapter融合数据
             # x, x_modal = self.adapter(x, x_modal)
 
@@ -288,12 +292,12 @@ class VisionTransformerCE(VisionTransformer):
 
                 # score in layer end
 
-                x_f, x_f_modal = self.cross_mamba[i // 4](x, x_modal)
-                x_fuse = self.channel_attn_mamba[i // 4](x_f, x_f_modal)
+                x, x_modal = self.cross_mamba[i // 4](x, x_modal)
+                x_fuse = self.channel_attn_mamba[i // 4](x, x_modal)
                 mx += x_fuse
 
-                z_f, z_f_modal = self.cross_mamba[i // 4](z, z_modal)
-                z_fuse = self.channel_attn_mamba[i // 4](z_f, z_f_modal)
+                z, z_modal = self.cross_mamba[i // 4](z, z_modal)
+                z_fuse = self.channel_attn_mamba[i // 4](z, z_modal)
                 mz += z_fuse
 
                 x = self.wh2token(x, z, xw, xh, zw, zh, B)
@@ -307,6 +311,7 @@ class VisionTransformerCE(VisionTransformer):
             if self.ce_loc is not None and i in self.ce_loc:
                 removed_indexes_s.append(removed_index_s)
                 removed_indexes_s_modal.append(removed_index_s_modal)
+                removed_indexes_ms.append(removed_index_ms)
 
         x = self.norm(x)
         x_modal = self.norm(x_modal)
