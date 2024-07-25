@@ -24,6 +24,7 @@ import torch.distributed as dist
 
 
 def run():
+    # torch.autograd.set_detect_anomaly(True)
     dist.init_process_group(backend='nccl')
     cfg = env_setting(cfg_name="plscore_os_sigma_RGBE.yaml")
     local_rank = int(os.environ.get('LOCAL_RANK', -1))
@@ -46,6 +47,7 @@ def run():
 
     # 导入预训练权重
     pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/OSTrack_ep0300.pth.tar"
+    # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/OSTrack_ce_ep0300.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0030.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/checkpoints/LeeNet_plScore_OS_sigma_CENTER/ScoreOSCENTER_ep0080.pth.tar"
     # pretrained = "/media/star/data/Leezed/workspace/LeeNet/pretrained/BAT_rgbt.pth"
@@ -73,7 +75,7 @@ def run():
     # 导入预训练权重结束
 
     net.cuda()
-    net = DDP(net, device_ids=[local_rank], find_unused_parameters=True)
+    net = DDP(net, device_ids=[local_rank], find_unused_parameters=True, broadcast_buffers=False)
 
     focal_loss = FocalLoss()
     objective = {'giou': giou_loss, 'l1': l1_loss, 'focal': focal_loss, 'cls': BCEWithLogitsLoss()}
@@ -84,7 +86,8 @@ def run():
 
     # location loss 没计算出来
     if loader_val is not None:
-        trainer = LeeNetTrainer(actor=actor, loaders=[loader_train, loader_val], optimizer=optimizer, lr_scheduler=lr_scheduler, cfg=cfg, rank=local_rank)
+        trainer = LeeNetTrainer(actor=actor, loaders=[loader_train, loader_val], optimizer=optimizer, lr_scheduler=lr_scheduler, cfg=cfg,
+                                rank=local_rank)
     else:
         trainer = LeeNetTrainer(actor=actor, loaders=[loader_train], optimizer=optimizer, lr_scheduler=lr_scheduler, cfg=cfg,
                                 rank=local_rank)

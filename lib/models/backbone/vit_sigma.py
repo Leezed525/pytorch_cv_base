@@ -9,7 +9,7 @@ from lib.utils.backbone_utils import combine_tokens, token2feature, feature2toke
 from lib.models.layer.patch_embed import PatchEmbed
 from .vit import VisionTransformer
 from lib.models.layer.vmamba import CrossMambaFusionBlock, ConcatMambaFusionBlock
-from lib.models.layer.score import PLScoreLayerUseConv
+from lib.models.layer.score import PLScoreLayerUseConv, ScoreAttention
 
 
 class Attention(nn.Module):
@@ -150,25 +150,22 @@ class VisionTransformerP(VisionTransformer):
                 hidden_dim=self.embed_dim,
                 mlp_ratio=0.0,
                 d_state=4,
-            ) for i in range(12)
+            ) for i in range(4)
         )
         self.channel_attn_mamba = nn.ModuleList(
             ConcatMambaFusionBlock(
                 hidden_dim=self.embed_dim,
                 mlp_ratio=0.0,
                 d_state=4,
-            ) for i in range(12)
+            ) for i in range(4)
         )
-        sigma_norms = []
-        for i in range(12):
-            sigma_norms.append(norm_layer(embed_dim))
-        self.sigma_norms = nn.Sequential(*sigma_norms)
+        self.sigma_norm = norm_layer(embed_dim)
 
         # score layer
-
-        self.score = nn.ModuleList(
-            PLScoreLayerUseConv(embed_dim=self.embed_dim) for i in range(13)
-        )
+        # self.score = nn.ModuleList(
+        #     ScoreAttention(embed_dim=self.embed_dim) for i in range(13)
+        # )
+        self.score = ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2)
 
         self.init_weights(weight_init)
 
@@ -186,27 +183,14 @@ class VisionTransformerP(VisionTransformer):
         # overwrite x & z
         x, z = x_rgb, z_rgb
 
-        x, _ = self.patch_embed(x)  # (B, 768,16,16)
-        z, _ = self.patch_embed(z)  # (B, 768,8,8)
+        x, _ = self.patch_embed(x)  # (B, 16*16,768)
+        z, _ = self.patch_embed(z)  # (B, 8*8,768)
 
         x_modal, _ = self.patch_embed(x_modal)
         z_modal, _ = self.patch_embed(z_modal)
 
-        mx = self.score[12](x, x_modal)  # (B, 768,16,16)
-        mz = self.score[12](z, z_modal)  # (B, 768,8,8)
-
-        zw, zh = mz.shape[2], mz.shape[3]
-        xw, xh = mx.shape[2], mx.shape[3]
-
-        # (B,C,H,W) -> (B,H*W,C)
-        x = x.flatten(2).transpose(1, 2)
-        z = z.flatten(2).transpose(1, 2)
-
-        x_modal = x_modal.flatten(2).transpose(1, 2)
-        z_modal = z_modal.flatten(2).transpose(1, 2)
-
-        mx = mx.flatten(2).transpose(1, 2)
-        mz = mz.flatten(2).transpose(1, 2)
+        zw = zh = int(z.shape[1] ** 0.5)
+        xw = xh = int(x.shape[1] ** 0.5)
 
         # attention mask handling
         # B, H, W
@@ -224,14 +208,17 @@ class VisionTransformerP(VisionTransformer):
             cls_tokens = self.cls_token.expand(B, -1, -1)
             cls_tokens = cls_tokens + self.cls_pos_embed
 
-        z += self.pos_embed_z
-        x += self.pos_embed_x
+        z = z + self.pos_embed_z
+        x = x + self.pos_embed_x
+        z_modal = z_modal + self.pos_embed_z
+        x_modal = x_modal + self.pos_embed_x
 
-        z_modal += self.pos_embed_z
-        x_modal += self.pos_embed_x
+        # score function start
 
-        mz += self.pos_embed_z
-        mx += self.pos_embed_x
+        mx = self.score(x, x_modal)  # (B, 16*16,768)
+        mz = self.score(z, z_modal)  # (B, 8*8,768)
+
+        # score function end
 
         if self.add_sep_seg:
             x += self.search_segment_pos_embed
@@ -240,6 +227,7 @@ class VisionTransformerP(VisionTransformer):
         x = combine_tokens(z, x, mode=self.cat_mode)
         x_modal = combine_tokens(z_modal, x_modal, mode=self.cat_mode)
         mx = combine_tokens(mz, mx, mode=self.cat_mode)
+        # mx = torch.zeros_like(x)
 
         if self.add_cls_token:
             x = torch.cat([cls_tokens, x], dim=1)
@@ -258,34 +246,28 @@ class VisionTransformerP(VisionTransformer):
             # mx = blk(mx)
 
             """sigma fusion"""
-            x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
-            x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
-            mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
+            if i % 4 == 3:
+                # sigma fusion
+                x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
+                x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
+                mx, mz = self.token2wh(mx, xw, xh, zw, zh, B)
 
-            # score in layer start
-            score_x = self.score_in_layer[i](x.permute(0, 3, 1, 2), x_modal.permute(0, 3, 1, 2))
-            score_z = self.score_in_layer[i](z.permute(0, 3, 1, 2), z_modal.permute(0, 3, 1, 2))
+                x, x_modal = self.cross_mamba[i // 4](x, x_modal)
+                x_fuse = self.channel_attn_mamba[i // 4](x, x_modal)
+                mx += x_fuse
 
-            mx += score_x.permute(0, 2, 3, 1)
-            mz += score_z.permute(0, 2, 3, 1)
+                z, z_modal = self.cross_mamba[i // 4](z, z_modal)
+                z_fuse = self.channel_attn_mamba[i // 4](z, z_modal)
+                mz += z_fuse
 
-            # score in layer end
+                x = self.wh2token(x, z, xw, xh, zw, zh, B)
+                x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
+                mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
 
-            x, x_modal = self.cross_mamba[i](x, x_modal)
-            x_fuse = self.channel_attn_mamba[i](x, x_modal)
-            mx += x_fuse
-
-            z, z_modal = self.cross_mamba[i](z, z_modal)
-            z_fuse = self.channel_attn_mamba[i](z, z_modal)
-            mz += z_fuse
-
-            x = self.wh2token(x, z, xw, xh, zw, zh, B)
-            x_modal = self.wh2token(x_modal, z_modal, xw, xh, zw, zh, B)
-            mx = self.wh2token(mx, mz, xw, xh, zw, zh, B)
-
-            x = self.sigma_norms[i](x)
-            x_modal = self.sigma_norms[i](x_modal)
-            mx = self.sigma_norms[i](mx)
+                # 加个norm防止过拟合
+                x = self.sigma_norm(x)
+                x_modal = self.sigma_norm(x_modal)
+                mx = self.sigma_norm(mx)
 
         x = x + mx + x_modal
         x = self.norm(x)

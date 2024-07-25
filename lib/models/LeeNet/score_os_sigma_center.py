@@ -73,7 +73,7 @@ class ScoreOSCENTER(nn.Module):
 
 
 def build_score_os_sigma_center(cfg, training=True):
-    backbone = vit_base_patch16_224_ce(pretrained=False,
+    backbone = vit_base_patch16_224(pretrained=False,
                                        drop_path_rate=cfg.train.drop_path_rate,
                                        search_size=to_2tuple(cfg.data.search.size),
                                        template_size=to_2tuple(cfg.data.template.size),

@@ -7,6 +7,7 @@ import torch.nn as nn
 # from lib.models.layer.RMT import RetBlock, RelPos2d
 from lib.models.layer.Conv import Conv
 import torch
+from lib.models.layer.attn import Attention
 
 
 class ScoreLayerUseConv(nn.Module):
@@ -67,5 +68,30 @@ class PLScoreLayerUseConv(nn.Module):
         value = x_tmp * 0.4 + 0.5
         x = positive_mask * (value * x_rgb_clone + (1 - value) * x_modal_clone) + (value * x_rgb_clone + value * x_modal_clone) + negative_mask * (
                 (1 - value) * x_rgb_clone + value * x_modal_clone)  # 20240722 0:08把中间的0.5换成了value
+
+        return x
+
+
+class ScoreAttention(nn.Module):
+    def __init__(self, embed_dim=768, num_heads=12, attn_drop=0.1, qkv_bias=False, drop=0.1):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.attn = Attention(embed_dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
+        self.merge = nn.MaxPool1d(kernel_size=2, stride=2)
+
+    def forward(self, x, x_modal):
+        # x shape: (B, C ,D)
+        B, C, D = x.shape
+        x_score = self.attn(x)
+        x_modal_score = self.attn(x_modal)
+
+        x_score = x_score.flatten(1)  # (B, C, D) -> (B, C * D)
+        x_modal_score = x_modal_score.flatten(1)
+
+        x_score = x_score.unsqueeze(1)
+        x_modal_score = x_modal_score.unsqueeze(1)
+
+        x = torch.cat((x_score, x_modal_score), dim=1)
+        x = self.merge(x).reshape(B, C, D)
 
         return x
