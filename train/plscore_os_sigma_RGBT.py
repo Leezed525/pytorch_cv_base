@@ -53,6 +53,10 @@ def run():
 
     model_dict = net.state_dict()
     state_dict = {k: v for k, v in checkpoint.items() if k in model_dict.keys()}
+    # for k, v in checkpoint.items():
+    #     if 'block' in k:
+    #         tmp = k.replace('block', 'm_blocks')
+    #         state_dict[tmp] = v
     model_dict.update(state_dict)
     net.load_state_dict(model_dict, strict=False)
     print("导入预训练权重成功")

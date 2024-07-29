@@ -166,6 +166,7 @@ class VisionTransformerP(VisionTransformer):
         #     ScoreAttention(embed_dim=self.embed_dim) for i in range(13)
         # )
         self.score = ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2)
+        self.score_in_layer = ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2)
 
         self.init_weights(weight_init)
 
@@ -243,10 +244,11 @@ class VisionTransformerP(VisionTransformer):
         for i, blk in enumerate(self.blocks):
             x = blk(x)
             x_modal = blk(x_modal)
-            # mx = blk(mx)
 
             """sigma fusion"""
             if i % 4 == 3:
+                # score fusion
+                mx = mx + self.score_in_layer(x, x_modal)
                 # sigma fusion
                 x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
                 x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
