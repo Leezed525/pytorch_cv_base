@@ -115,6 +115,8 @@ class VisionTransformerP(VisionTransformer):
 
         self.patch_embed = embed_layer(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
+        self.patch_embed_modal = embed_layer(
+            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
         # num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
@@ -166,7 +168,9 @@ class VisionTransformerP(VisionTransformer):
         #     ScoreAttention(embed_dim=self.embed_dim) for i in range(13)
         # )
         self.score = ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2)
-        self.score_in_layer = ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2)
+        self.score_in_layer = nn.ModuleList(
+            ScoreAttention(embed_dim=self.embed_dim, num_heads=num_heads // 2) for i in range(4)
+        )
 
         self.init_weights(weight_init)
 
@@ -187,8 +191,8 @@ class VisionTransformerP(VisionTransformer):
         x, _ = self.patch_embed(x)  # (B, 16*16,768)
         z, _ = self.patch_embed(z)  # (B, 8*8,768)
 
-        x_modal, _ = self.patch_embed(x_modal)
-        z_modal, _ = self.patch_embed(z_modal)
+        x_modal, _ = self.patch_embed_modal(x_modal)
+        z_modal, _ = self.patch_embed_modal(z_modal)
 
         zw = zh = int(z.shape[1] ** 0.5)
         xw = xh = int(x.shape[1] ** 0.5)
@@ -248,7 +252,7 @@ class VisionTransformerP(VisionTransformer):
             """sigma fusion"""
             if i % 4 == 3:
                 # score fusion
-                mx = mx + self.score_in_layer(x, x_modal)
+                mx = mx + self.score_in_layer[i // 4](x, x_modal)
                 # sigma fusion
                 x, z = self.token2wh(x, xw, xh, zw, zh, B)  # x -> (B, 16,16, 768) z - > (B, 8,8, 768)
                 x_modal, z_modal = self.token2wh(x_modal, xw, xh, zw, zh, B)
