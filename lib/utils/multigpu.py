@@ -1,5 +1,11 @@
 import torch.nn as nn
 # Here we use DistributedDataParallel(DDP) rather than DataParallel(DP) for multiple GPUs training
+import os
+
+
+def is_main_process():
+    local_rank = os.environ.get("LOCAL_RANK", 0)
+    return local_rank == 0
 
 
 def is_multi_gpu(net):
