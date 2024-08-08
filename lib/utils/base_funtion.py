@@ -111,19 +111,20 @@ def get_optimizer_scheduler(net, cfg):
     if 'plScore_OS_sigma' in cfg.train.specifical_model_name:
         # print("only train sigma and plscore parameters")
         train_params = ["cross_mamba", "channel_attn_mamba", 'score', "sigma_norm", "patch_embed_modal"]
+        fine_tune_params = ["backbone.norm", "backbone.blocks"]
         param_dicts = [
             {"params": [p for n, p in net.named_parameters() if any(nd in n for nd in train_params) and p.requires_grad]},
             {
-                "params": [p for n, p in net.named_parameters() if
-                           "backbone" in n and not any(nd in n for nd in train_params) and p.requires_grad],
-                "lr": cfg.train.lr * cfg.train.backbone_multiplier,
-            }
+                "params": [p for n, p in net.named_parameters() if any(nd in n for nd in fine_tune_params) and p.requires_grad],
+                "lr": cfg.train.lr * cfg.train.backbone_multiplier
+            },
         ]
-        if is_main_process():
-            for n, p in net.named_parameters():
-                if "box_head" in n:
-                    p.requires_grad = False
-                else:
+        print("Learnable parameters are shown below.")
+        for n, p in net.named_parameters():
+            if not any(nd in n for nd in train_params) and not any(nd in n for nd in fine_tune_params):
+                p.requires_grad = False
+            else:
+                if is_main_process():
                     print(n)
     else:
         param_dicts = [

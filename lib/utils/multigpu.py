@@ -4,7 +4,8 @@ import os
 
 
 def is_main_process():
-    local_rank = os.environ.get("LOCAL_RANK", 0)
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    # print("local_rank: ", local_rank)
     return local_rank == 0
 
 
