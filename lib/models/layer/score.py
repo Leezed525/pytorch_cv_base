@@ -78,6 +78,8 @@ class ScoreAttention(nn.Module):
         self.embed_dim = embed_dim
         self.attn = Attention(embed_dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
         self.merge = nn.MaxPool1d(kernel_size=2, stride=2)
+        self.norm = nn.LayerNorm(embed_dim)
+
 
     def forward(self, x, x_modal):
         # x shape: (B, C ,D)
@@ -93,5 +95,6 @@ class ScoreAttention(nn.Module):
 
         x = torch.cat((x_score, x_modal_score), dim=1)
         x = self.merge(x).reshape(B, C, D)
+        x = self.norm(x)
 
         return x
